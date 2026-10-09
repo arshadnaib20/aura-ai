@@ -143,6 +143,41 @@ footer{border-top:1px solid var(--line-soft);padding:44px 0 36px}
 .foot a{font-size:13px;color:var(--dim);transition:color .2s}
 .foot a:hover{color:var(--gold-bright)}
 
+/* ===== chat widget ===== */
+.chat-fab{position:fixed;right:26px;bottom:26px;z-index:200;width:60px;height:60px;border-radius:50%;border:1px solid var(--line);background:linear-gradient(135deg,var(--gold-bright),var(--gold));cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px rgba(201,169,97,.35);transition:transform .3s var(--ease)}
+.chat-fab:hover{transform:scale(1.06)}
+.chat-fab svg{width:26px;height:26px;color:#0A0A0A}
+.chat-fab .badge{position:absolute;top:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#E0403C;border:2px solid #0A0A0A}
+.chat-panel{position:fixed;right:26px;bottom:98px;z-index:200;width:min(400px,calc(100vw - 52px));height:min(560px,calc(100vh - 140px));border:1px solid var(--line);border-radius:20px;background:rgba(8,8,10,.96);backdrop-filter:blur(16px);box-shadow:0 30px 90px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden;opacity:0;pointer-events:none;transform:translateY(16px) scale(.98);transition:all .35s var(--ease)}
+.chat-panel.open{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+.chat-head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line-soft);background:rgba(201,169,97,.05)}
+.chat-head img{width:34px;height:34px;border-radius:9px}
+.chat-head b{font-family:'Space Grotesk',sans-serif;font-size:15px;letter-spacing:.04em}
+.chat-head small{display:block;font-size:11px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
+.chat-head .status{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim2)}
+.chat-head .status i{width:7px;height:7px;border-radius:50%;background:#3ECF6E;box-shadow:0 0 8px #3ECF6E}
+.chat-body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.msg{max-width:82%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.55;animation:msgIn .3s var(--ease)}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg.bot{align-self:flex-start;background:rgba(255,255,255,.06);border:1px solid var(--line-soft);border-bottom-left-radius:4px}
+.msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#0A0A0A;border-bottom-right-radius:4px;font-weight:500}
+.msg.bot b{color:var(--gold-bright);font-weight:600}
+.msg.bot a{color:var(--gold-bright);text-decoration:underline}
+.msg .t{display:block;font-size:10.5px;color:var(--dim2);margin-top:6px;letter-spacing:.05em}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;padding:0 18px 10px}
+.chip{padding:7px 13px;border:1px solid var(--line);border-radius:100px;font-size:12px;color:var(--gold-bright);background:transparent;cursor:pointer;transition:all .2s;font-family:'Manrope',sans-serif}
+.chip:hover{background:rgba(201,169,97,.12);border-color:var(--gold)}
+.chat-in{display:flex;gap:10px;padding:12px 14px 16px;border-top:1px solid var(--line-soft);align-items:flex-end}
+.chat-in input{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;color:var(--text);font-family:'Manrope',sans-serif;font-size:14px;outline:none;transition:border-color .2s}
+.chat-in input:focus{border-color:var(--gold)}
+.chat-in button{width:44px;height:44px;flex:none;border-radius:12px;border:1px solid var(--line);background:linear-gradient(135deg,var(--gold-bright),var(--gold));cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+.chat-in button:hover{transform:scale(1.06)}
+.chat-in button svg{width:20px;height:20px;color:#0A0A0A}
+.typing{display:inline-flex;gap:4px;align-items:center;padding:6px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:tp 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
+@keyframes tp{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+
 @media (max-width:900px){
   .hero-grid{grid-template-columns:1fr;gap:30px;text-align:center;padding-top:120px}
   .hero-copy p.sub{margin-left:auto;margin-right:auto}
@@ -380,6 +415,87 @@ document.querySelectorAll('.card,.arch-node,.tl,.sec-head').forEach(el=>{
   el.style.opacity=0;el.style.transform='translateY(26px)';el.style.transition='opacity .8s var(--ease), transform .8s var(--ease)';
   io.observe(el);
 });
+
+/* ===== chat widget ===== */
+const KB=[
+  {k:['what is nova','what are you','who are you','about nova','what can nova','nova ai'],a:'NOVA is a private, audited AI agent that lives on your machine. It reads and writes files in a sandboxed workspace, takes searchable notes, opens allowed apps, browses the web, and runs scheduled jobs — all behind an approval gate you control. No cloud lock-in: memory lives in SQLite on your PC.'},
+  {k:['install','setup','get started','how to run','quick start','requirements','install nova'],a:'1) Get a free API key at console.groq.com. 2) Clone the repo: <b>https://github.com/arshadnaib20/nova-ai</b>. 3) Put the key in <b>nova/.env</b>. 4) Run <b>pip install -r requirements.txt</b>. 5) Start with <b>python -m nova.ui.cli</b> (terminal) or <b>python -m nova.ui.web</b> (ChatGPT-style UI at localhost:5173).'},
+  {k:['god mode','god','approval','permission','auto approve'],a:'<b>God Mode</b> lets NOVA act without stopping to ask for approval on every step — type <b>/god</b> in the terminal or toggle it in the web UI. Everything is still written to the audit log, and a kill switch (<b>/stop</b>) is always available. You can also set permission levels 0–4.'},
+  {k:['command','commands','cli','terminal','/notes','/audit','/exit','/stop'],a:'Terminal commands: <b>/exit</b> quits, <b>/notes</b> lists notes, <b>/audit</b> shows the recent audit trail, <b>/god</b> turns on auto-approval, <b>/stop</b> creates the kill switch and closes the browser. Everything else you just talk to NOVA in plain English.'},
+  {k:['login','sign up','register','account','password'],a:'The web UI (localhost:5173) has a full login and sign-up page with password hashing, so only you can reach your NOVA. Sign up once, then chat from the browser.'},
+  {k:['voice','speak','mic','talk','3d animation'],a:'The web UI has a voice mode — tap the mic and NOVA listens with the browser\'s speech recognition while a 3D golden orb animates on screen. No extra API needed for the mic.'},
+  {k:['browser','open site','web','playwright','surf'],a:'NOVA can open pages, read content and take screenshots with Playwright. For safety it only visits domains in its allow-list (you can edit ALLOWED_DOMAINS in nova/config.py). Clicking and typing require approval.'},
+  {k:['file','read','write','delete','workspace'],a:'NOVA works inside <b>nova_workspace/</b> only. Reading is free; writing, deleting and moving files ask for approval first — so nothing on your PC is touched without you saying yes.'},
+  {k:['notes','remember','memory','sqlite','search'],a:'Conversations and notes persist in SQLite. Ask NOVA anything from the past — it loads recent messages and can search its notes on request.'},
+  {k:['app','open app','notepad','calc','launch'],a:'NOVA launches desktop apps from a strict allow-list (e.g. Notepad, Calculator — see ALLOWED_APPS in config.py). Opening an app requires approval. There is no raw shell access.'},
+  {k:['scheduler','schedule','every day','recurring','remind','daily'],a:'NOVA can run recurring jobs — like "every day at 9am, summarise my notes" — through the same agent loop and approval gate. Every run is logged.'},
+  {k:['brain','groq','api','llm','model','key','free'],a:'NOVA\'s brain is the free Groq API (model: openai/gpt-oss-20b) — fast and free, so it runs comfortably on low-RAM laptops. Your API key stays in local <b>.env</b>; it is never uploaded to GitHub.'},
+  {k:['price','cost','money','free','paid','subscription'],a:'NOVA itself is 100% free and open source. The only cost is a free Groq API key — no subscription, no cloud fees.'},
+  {k:['secure','safe','privacy','private','audit','log'],a:'Privacy first: everything runs locally, every risky action is approved first, and every action is written to the audit log. Files stay in the sandboxed workspace. NOVA never sends your data anywhere except to the LLM provider for the reply itself.'},
+  {k:['where','location','folder','path','file location','find'],a:'On this machine NOVA lives at <b>C:\\Users\\Administrator\\Doubao\\chats\\2026-09-18\\new-chat\\nova\\</b> — double-click the <b>Nova AI</b> icon on the desktop to start it.'},
+  {k:['who made','creator','developer','made by','arshad','naib'],a:'NOVA was built by <b>Arshad Naib</b>, a final-year Computer Science student at Xuzhou University of Technology — as part of a portfolio spanning software engineering, AI/ML, full-stack and cybersecurity.'},
+  {k:['help','what can you do','features','capabilities'],a:'I can tell you about NOVA\'s features: files, notes, browser, apps, scheduler, voice, God Mode, the web UI and installation. Try the suggestion chips below, or ask me anything about Nova.'},
+  {k:['github','repo','source','code','open source','link'],a:'The full source is on GitHub: <a href="https://github.com/arshadnaib20/nova-ai" target="_blank" rel="noopener">github.com/arshadnaib20/nova-ai</a> — pinned to the profile, with topics python, ai, llm and chatbot.'},
+  {k:['hello','hi','hey','salam','assalam'],a:'Hello! I\'m the NOVA assistant. Ask me about NOVA\'s features, how to install it, God Mode, voice, security — or tap a suggestion below.'}
+];
+const FALLBACK='Good question. I\'m the site assistant — for that I\'d need the full NOVA brain, which runs locally. Try asking me about <b>features</b>, <b>install</b>, <b>God Mode</b>, <b>voice</b>, <b>commands</b> or <b>security</b>.';
+function answer(q){
+  q=q.toLowerCase().replace(/[?.!,]/g,'').trim();
+  let best=null,bestScore=0;
+  for(const e of KB){
+    let s=0;
+    for(const k of e.k){
+      if(q.includes(k)) s+=k.length;
+      else{
+        const words=k.split(' ').filter(w=>w.length>2);
+        const matched=words.filter(w=>q.includes(w));
+        s+=matched.reduce((a,w)=>a+w.length*.5,0);
+      }
+    }
+    if(s>bestScore){bestScore=s;best=e;}
+  }
+  if(!best||bestScore<2)return FALLBACK;
+  return best.a;
+}
+const panel=document.createElement('div');panel.className='chat-panel';panel.id='chatPanel';
+panel.innerHTML=`
+  <div class="chat-head">
+    <img src="nova-logo.png" alt="NOVA">
+    <div><b>NOVA Assistant</b><small>Online · replies instantly</small></div>
+    <span class="status"><i></i>ready</span>
+  </div>
+  <div class="chat-body" id="chatBody"></div>
+  <div class="chip-row" id="chipRow">
+    <button class="chip">What can Nova do?</button>
+    <button class="chip">How do I install it?</button>
+    <button class="chip">What is God Mode?</button>
+    <button class="chip">Is it free?</button>
+  </div>
+  <form class="chat-in" id="chatForm">
+    <input id="chatInput" placeholder="Ask about NOVA…" autocomplete="off">
+    <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+  </form>`;
+const fab=document.createElement('button');fab.className='chat-fab';fab.setAttribute('aria-label','Open chat');
+fab.innerHTML=`<span class="badge"></span><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 20l1-4.9a8.4 8.4 0 1 1 17-3.6z"/></svg>`;
+document.body.appendChild(fab);document.body.appendChild(panel);
+const body=document.getElementById('chatBody');
+function addMsg(html,who){
+  const d=document.createElement('div');d.className='msg '+who;
+  d.innerHTML=html+'<span class="t">'+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</span>';
+  body.appendChild(d);body.scrollTop=body.scrollHeight;
+}
+function botSay(txt){addMsg(txt,'bot');}
+function typing(fn){
+  const t=document.createElement('div');t.className='msg bot';t.innerHTML='<span class="typing"><i></i><i></i><i></i></span>';body.appendChild(t);body.scrollTop=body.scrollHeight;
+  setTimeout(()=>{t.remove();fn();},420+Math.random()*380);
+}
+function userAsk(q){
+  addMsg('<b>'+q.replace(/</g,'&lt;')+'</b>','user');
+  typing(()=>botSay(answer(q)));
+}
+fab.addEventListener('click',()=>{panel.classList.toggle('open');if(panel.classList.contains('open')&&!body.dataset.seeded){body.dataset.seeded=1;botSay('Hi, I\'m <b>NOVA</b> — the assistant behind this site. Ask me about features, install, God Mode, voice, commands or security.');}});
+document.getElementById('chatForm').addEventListener('submit',e=>{e.preventDefault();const v=document.getElementById('chatInput').value.trim();if(v){userAsk(v);document.getElementById('chatInput').value='';}});
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>userAsk(c.textContent)));
 </script>
 </body>
 </html>
