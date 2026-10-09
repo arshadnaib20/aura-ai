@@ -1,0 +1,60 @@
+"""Nova configuration — loads .env and defines safety boundaries."""
+import os
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+# ---- Paths ---------------------------------------------------------------
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LOGS_DIR = PROJECT_ROOT / "logs"
+DB_PATH = PROJECT_ROOT / "nova.db"
+STOP_FILE = PROJECT_ROOT / "STOP"
+
+# ---- Brain ---------------------------------------------------------------
+API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+MODEL = os.getenv("MODEL", "llama-3.1-8b-instant")
+BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+
+# ---- Workspace sandbox ---------------------------------------------------
+WORKSPACE = (PROJECT_ROOT / os.getenv("WORKSPACE", "./nova_workspace")).resolve()
+WORKSPACE.mkdir(parents=True, exist_ok=True)
+
+# ---- Permission level ----------------------------------------------------
+# 0 suggest only | 1 ask every action | 2 auto low-risk, ask risky | 3 auto within scope
+PERMISSION_LEVEL = int(os.getenv("PERMISSION_LEVEL", "2"))
+
+# ---- God Mode ------------------------------------------------------------
+# When true, Nova auto-approves everything (runs at effective level 3).
+# Everything is still written to the audit log.
+GOD_MODE = os.getenv("GOD_MODE", "false").strip().lower() in ("1", "true", "yes", "on")
+
+# ---- Apps allowlist (name -> executable) ---------------------------------
+ALLOWED_APPS = {
+    "notepad": "notepad.exe",
+    "calc": "calc.exe",
+    "paint": "mspaint.exe",
+    "chrome": "chrome.exe",
+    # add more apps here, e.g. "vscode": r"C:\Users\Administrator\AppData\Local\Programs\Microsoft VS Code\Code.exe"
+}
+
+# ---- Domains -------------------------------------------------------------
+# Empty = any domain allowed. Otherwise only listed domains are allowed.
+_domains_raw = os.getenv("ALLOWED_DOMAINS", "").strip()
+ALLOWED_DOMAINS = [d.strip().lower().lstrip("www.") for d in _domains_raw.split(",") if d.strip()]
+ALLOW_ANY_DOMAIN = len(ALLOWED_DOMAINS) == 0
+
+# ---- Browser -------------------------------------------------------------
+BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "1").strip() == "1"
+
+# ---- Approval mode -------------------------------------------------------
+# "cli" = terminal y/n prompts (default), "web" = approve/deny buttons in web UI
+APPROVAL_MODE = os.getenv("APPROVAL_MODE", "cli").strip().lower()
+
+
+def ensure_logs_dir() -> Path:
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    return LOGS_DIR

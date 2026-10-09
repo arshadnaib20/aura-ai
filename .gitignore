@@ -1,0 +1,15 @@
+# Secrets — NEVER upload these
+.env
+
+# Runtime data
+nova.db
+logs/
+nova_workspace/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Misc
+STOP

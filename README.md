@@ -1,0 +1,115 @@
+# Nova
+
+**Nova AI** — a local, audited, approval-gated AI agent for your laptop.
+
+```
+You
+ ├── CLI / Web UI / Voice
+ └── Nova Agent Loop
+        ├── Brain: Groq free API (or Ollama later)
+        ├── Memory: SQLite
+        ├── Audit Log: SQLite
+        ├── Approval Gate
+        └── Tools
+             ├── Files (workspace only)
+             ├── Notes
+             ├── Browser (Playwright)
+             ├── Apps (allowlist only)
+             └── Scheduler
+```
+
+Everything risky goes through the Approval Gate.  
+Everything Nova does is written to the Audit Log.  
+Everything file-related stays inside `nova_workspace/`.
+
+## Quick start
+
+```bash
+# 1. Get a free API key: https://console.groq.com  -> API Keys -> Create
+#    Then either paste it into .env or:
+setx GROQ_API_KEY "your_key_here"
+#    Close and reopen your terminal.
+
+# 2. Create a virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+
+# 3. Install packages
+pip install -r requirements.txt
+playwright install chromium
+
+# 4. Run Nova
+python -m nova.ui.cli
+```
+
+## What Nova v1.0 can do
+
+- Chat with you (Groq brain)
+- Remember notes and conversations (SQLite)
+- Read/write files inside `nova_workspace/`
+- Open a browser (Playwright, headless by default) and do simple web jobs
+- Open allowlisted desktop apps
+- Ask approval before risky actions
+- Log everything to the audit log
+- Run on ~4GB RAM (brain is in the cloud; your laptop only runs Python + SQLite + optional browser)
+
+Nova will **not** run fully offline with a smart local model, open any app outside the
+allowlist, act without approval on risky steps, or bypass safety.
+
+## CLI commands
+
+```
+/exit    quit
+/notes   list saved notes
+/audit   show recent audit log
+/stop    create STOP file (kills scheduler/browser jobs)
+/level N change permission level (0-3)
+/help    show commands
+```
+
+## Permission levels
+
+| Level | Behavior |
+|---|---|
+| 0 | Suggest only — never executes |
+| 1 | Ask before every action |
+| 2 | Auto for low-risk, ask for risky (default) |
+| 3 | Auto within scope, daily review |
+
+## Safety rules (kept)
+
+- Only files inside `nova_workspace/`
+- Only allowed domains and apps
+- Approval before write, delete, click, type, send, pay, post
+- No raw shell access
+- Audit log for every action
+- Kill switch: `/stop` or Ctrl+C (a `STOP` file in project root stops jobs)
+- Back up `nova_workspace/` and `nova.db`
+
+## Folder structure
+
+```
+nova/
+├── .env
+├── requirements.txt
+├── README.md
+├── nova_workspace/
+├── logs/
+├── nova/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── db.py
+│   ├── agent.py
+│   ├── approval.py
+│   ├── tools/
+│   │   ├── __init__.py
+│   │   ├── files.py
+│   │   ├── notes.py
+│   │   ├── browser.py
+│   │   ├── apps.py
+│   │   └── scheduler.py
+│   └── ui/
+│       ├── __init__.py
+│       ├── cli.py
+│       └── web.py
+```
