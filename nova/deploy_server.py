@@ -22,6 +22,8 @@ for _k in list(os.environ):
 from nova.ui import web  # noqa: F401  (import registers routes)
 from nova import db  # noqa
 
+db.init_db()  # ensure tables exist the moment the WSGI app loads
+
 app = web.app
 
 if __name__ == "__main__":
