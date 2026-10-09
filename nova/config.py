@@ -54,6 +54,24 @@ BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "1").strip() == "1"
 # "cli" = terminal y/n prompts (default), "web" = approve/deny buttons in web UI
 APPROVAL_MODE = os.getenv("APPROVAL_MODE", "cli").strip().lower()
 
+# ---- Web (public deployment) ----------------------------------------------
+WEB_SECRET = os.getenv("WEB_SECRET", "nova-local-secret-change-me")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip()
+
+# ---- Owner / Admin --------------------------------------------------------
+# This email gets full admin panel access. Everything is still audited.
+OWNER_EMAIL = os.getenv("OWNER_EMAIL", "arshadnaib20@gmail.com").strip().lower()
+
+# ---- Mail (optional, used by "forgot password") ---------------------------
+# If SMTP_HOST is set, reset links are emailed; otherwise the link is shown
+# in the response (useful on free hosts without SMTP).
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASS = os.getenv("SMTP_PASS", "").strip()
+MAIL_FROM = os.getenv("MAIL_FROM", SMTP_USER or "nova@localhost").strip()
+
 
 def ensure_logs_dir() -> Path:
     LOGS_DIR.mkdir(parents=True, exist_ok=True)

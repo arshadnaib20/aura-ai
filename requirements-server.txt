@@ -1,0 +1,5 @@
+# Nova — public server dependencies (free tier: no Playwright, no desktop apps)
+flask>=3.0
+openai>=1.30
+python-dotenv>=1.0
+gunicorn>=21.2 ; sys_platform != "win32"

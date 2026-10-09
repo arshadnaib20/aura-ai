@@ -5,6 +5,9 @@ import os
 import sys
 import threading
 import time
+import json
+import urllib.request
+import urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -26,9 +29,11 @@ config.APPROVAL_MODE = "web"
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 app = Flask(__name__)
-app.secret_key = "nova-local-secret-change-me"
+app.secret_key = config.WEB_SECRET
 
 agent = NovaAgent()
+
+GOOGLE_CLIENT_ID = config.GOOGLE_CLIENT_ID  # set in .env for Google sign-in
 
 
 @app.route("/nova-logo.png")
@@ -66,6 +71,81 @@ def login_required(fn):
         return fn(*a, **kw)
     wrapper.__name__ = fn.__name__
     return wrapper
+
+
+def _me():
+    return {"uid": session.get("uid"), "email": session.get("email"), "name": session.get("name")}
+
+
+def _log(action, detail=""):
+    """Record who did what — every auth, chat, approval and toggle."""
+    try:
+        m = _me()
+        if m["uid"]:
+            db.log_activity(m["uid"], m["email"], action, detail)
+    except Exception:
+        pass
+
+
+def google_verify(id_token: str):
+    """Verify a Google ID token via Google's tokeninfo endpoint (no secret needed)."""
+    try:
+        url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + urllib.parse.quote(id_token)
+        with urllib.request.urlopen(url, timeout=10) as r:
+            data = json.loads(r.read().decode())
+        if GOOGLE_CLIENT_ID and data.get("aud") != GOOGLE_CLIENT_ID:
+            return None, "Token audience mismatch."
+        if not data.get("email"):
+            return None, "Google token has no email."
+        return data, None
+    except Exception as e:
+        return None, f"Google verification failed: {e}"
+
+
+def is_owner() -> bool:
+    return (session.get("email") or "").strip().lower() == config.OWNER_EMAIL
+
+
+def owner_required(fn):
+    def wrapper(*a, **kw):
+        if not session.get("uid"):
+            return redirect("/login")
+        if not is_owner():
+            return jsonify({"ok": False, "error": "Admin access only."}), 403
+        return fn(*a, **kw)
+    wrapper.__name__ = fn.__name__
+    return wrapper
+
+
+def _send_reset_email(email: str, reset_url: str) -> bool:
+    """Send reset link via SMTP if configured; returns True if sent."""
+    if not config.SMTP_HOST:
+        return False
+    import smtplib
+    from email.mime.text import MIMEText
+    try:
+        msg = MIMEText(
+            "Hello,\n\nSomeone asked to reset the password for your Nova AI account "
+            f"({email}). If that was you, open the link below within 24 hours:\n\n{reset_url}\n\n"
+            "If you did not ask for this, you can ignore this email.\n\n— Nova AI",
+            "plain",
+            "utf-8",
+        )
+        msg["Subject"] = "Nova AI — reset your password"
+        msg["From"] = config.MAIL_FROM
+        msg["To"] = email
+        with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as s:
+            s.starttls()
+            s.login(config.SMTP_USER, config.SMTP_PASS)
+            s.send_message(msg)
+        return True
+    except Exception:
+        return False
+
+
+def _reset_link(token: str) -> str:
+    base = (config.PUBLIC_URL or "http://127.0.0.1:5173").rstrip("/")
+    return f"{base}/reset?token={token}"
 
 
 PAGE = """<!doctype html>
@@ -159,6 +239,8 @@ button.send:disabled{opacity:.4;cursor:not-allowed}
 <div class="side">
   <div class="brand"><img src="/nova-logo.png" style="width:34px;height:34px;border-radius:8px;object-fit:cover"><div><h1>NOVA AI</h1><small>YOUR LOCAL ASSISTANT</small></div></div>
   <button class="newbtn" onclick="newChat()">+ New chat</button>
+  <button class="newbtn" onclick="showClients()">Clients · activity</button>
+  <button class="newbtn" id="adminbtn" style="display:none" onclick="location.href='/admin'">Admin panel</button>
   <div style="padding:14px;font-size:11px;color:var(--dim);line-height:1.7;border-top:1px solid var(--line);margin-top:auto">
     Level <span id="lvl"></span> · every risky action asks you first.<br>All actions are audited.
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
@@ -216,6 +298,33 @@ async function decide(token,ok){
   setTimeout(pollApprovals,600);
 }
 function newChat(){hist=[];chat.innerHTML='';chat.appendChild(emptyHTML());inp.focus();}
+async function showClients(){
+  chat.innerHTML='';
+  const w=document.createElement('div');w.className='wrap';
+  w.innerHTML='<div class="empty"><div class="logo">N</div><h2>Client activity</h2><p>Loading who did what…</p></div>';
+  chat.appendChild(w);chat.scrollTop=chat.scrollHeight;
+  try{
+    const r=await fetch('/api/activity');const d=await r.json();
+    let html='<div class="wrap"><div class="empty" style="padding-top:6vh"><div class="logo">N</div><h2>Clients · who did what</h2></div>';
+    if(!d.clients.length)html+='<p style="text-align:center;color:var(--dim);font-size:13px">No clients yet.</p>';
+    d.clients.forEach(c=>{
+      html+=`<div style="border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+        <b style="font-size:14px">${esc(c.name)}</b> <span style="color:var(--dim);font-size:12px">${esc(c.email)} · ${c.provider==='google'?'Google':'email'}</span>
+        <div style="font-size:12px;color:var(--dim);margin-top:6px;line-height:1.8">
+        Signed up ${new Date(c.signed_up*1000).toLocaleString()} · last seen ${c.last_seen?new Date(c.last_seen*1000).toLocaleString():'—'}<br>
+        ${c.chats} chats · ${c.god_toggles} god toggles · ${c.events} total events</div></div>`;
+    });
+    html+='<h3 style="font-size:13px;letter-spacing:.06em;color:var(--gold);margin:20px 0 10px">Recent activity</h3>';
+    d.events.forEach(e=>{
+      html+=`<div style="font-size:12.5px;color:var(--dim);border-bottom:1px solid var(--line-soft);padding:7px 0;display:flex;gap:10px">
+        <span style="flex:none;width:150px;color:var(--gold)">${new Date(e.ts*1000).toLocaleString()}</span>
+        <span style="flex:none;width:80px">${esc(e.action)}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.email||'')} ${esc(e.detail||'')}</span></div>`;
+    });
+    html+='<div style="height:30px"></div></div>';
+    chat.innerHTML=html;chat.scrollTop=0;
+  }catch(err){chat.innerHTML='<div class="wrap"><p style="color:var(--no);text-align:center">Failed to load activity.</p></div>';}
+}
 function emptyHTML(){
   const d=document.createElement('div');d.className='wrap';
   d.innerHTML=`<div class="empty"><div class="logo">N</div><h2>How can I help you?</h2>
@@ -233,6 +342,7 @@ async function me(){const r=await fetch('/api/me');const d=await r.json();
   document.getElementById('lvl').textContent=d.level;
   document.getElementById('god').checked=!!d.god;
   document.title='Nova AI — '+d.name;
+  if(d.owner){document.getElementById('adminbtn').style.display='block';}
 }
 inp.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
 btn.addEventListener('click',send);
@@ -308,6 +418,9 @@ button:hover{background:var(--gold2)}
 .err{color:var(--no);font-size:12.5px;margin-top:10px;min-height:16px}
 .alt{margin-top:18px;text-align:center;font-size:13px;color:var(--dim)}
 .alt a{color:var(--gold);text-decoration:none}
+.or{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:12px;margin:16px 0 2px;letter-spacing:.06em}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+#gwrap{margin-top:6px}
 </style>
 </head>
 <body>
@@ -315,30 +428,255 @@ button:hover{background:var(--gold2)}
 <div class="logo"><img src="/nova-logo.png" style="width:54px;height:54px;border-radius:15px;object-fit:cover"></div>
 <h1 id="t1">Welcome back</h1>
 <div class="sub" id="t2">Sign in to your Nova AI workspace.</div>
+<div id="gwrap"></div>
+<div class="or"><span>or</span></div>
 <form id="f" onsubmit="go(event)">
 <div id="namewrap" style="display:none"><label>Full name</label><input id="name" placeholder="Your name" autocomplete="name"></div>
-<label>Email</label><input id="email" placeholder="you@email.com" autocomplete="email" required>
-<label>Password</label><input id="pw" type="password" placeholder="••••••••" autocomplete="current-password" required>
+<label id="l_email">Email</label><input id="email" placeholder="you@email.com" autocomplete="email" required>
+<label id="l_pw">Password</label><input id="pw" type="password" placeholder="••••••••" autocomplete="current-password" required>
 <div class="err" id="err"></div>
 <button id="b">Sign in</button>
 </form>
-<div class="alt" id="alt">New here? <a href="#" id="sw" onclick="toggle(event)">Create an account</a></div>
+<div class="alt" id="alt">New here? <a href="#" onclick="toggle(event)">Create an account</a></div>
+<div class="alt"><a href="#" onclick="forgot(event)">Forgot password?</a></div>
 </div>
 <script>
 let mode='login';
 const t1=document.getElementById('t1'),t2=document.getElementById('t2'),b=document.getElementById('b'),
-namewrap=document.getElementById('namewrap'),alt=document.getElementById('alt'),sw=document.getElementById('sw');
+namewrap=document.getElementById('namewrap'),alt=document.getElementById('alt'),
+l_email=document.getElementById('l_email'),l_pw=document.getElementById('l_pw'),
+email=document.getElementById('email'),pw=document.getElementById('pw');
 function toggle(e){e.preventDefault();mode=mode==='login'?'signup':'login';
 namewrap.style.display=mode==='signup'?'block':'none';
 t1.textContent=mode==='signup'?'Create your account':'Welcome back';
 t2.textContent=mode==='signup'?'Start chatting with your personal Nova.':'Sign in to your Nova AI workspace.';
 b.textContent=mode==='signup'?'Create account':'Sign in';
+l_pw.style.display='block';pw.style.display='block';
 alt.innerHTML=mode==='signup'?'Already have one? <a href="#" onclick="toggle(event)">Sign in</a>':'New here? <a href="#" onclick="toggle(event)">Create an account</a>';}
-async function go(e){e.preventDefault();const body={mode,email:document.getElementById('email').value,password:document.getElementById('pw').value};
+async function forgot(e){e.preventDefault();mode='forgot';
+t1.textContent='Reset password';t2.textContent='Enter your email and we will send you a reset link.';
+namewrap.style.display='none';l_pw.style.display='none';pw.style.display='none';
+b.textContent='Send reset link';
+alt.innerHTML='Remembered? <a href="#" onclick="location.reload()">Sign in</a>';
+document.getElementById('err').textContent='';}
+async function go(e){e.preventDefault();const err=document.getElementById('err');err.textContent='';
+if(mode==='forgot'){
+  const r=await fetch('/api/auth/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value})});
+  const d=await r.json();
+  if(d.link){err.style.color='#E5CD8E';err.textContent=d.note+' '+d.link;}
+  else if(d.ok){err.style.color='#E5CD8E';err.textContent=d.note;}
+  else{err.textContent=d.error||'Something went wrong';}
+  return;}
+const body={mode,email:email.value,password:pw.value};
 if(mode==='signup')body.name=document.getElementById('name').value;
 const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const d=await r.json();
-if(d.ok){location.href='/chat';}else{document.getElementById('err').textContent=d.error||'Something went wrong';}}
+if(d.ok){location.href='/chat';}else{err.textContent=d.error||'Something went wrong';}}
+/* Google Sign-In */
+fetch('/api/config').then(r=>r.json()).then(cfg=>{
+  if(!cfg.google_client_id)return;
+  const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=()=>{
+    google.accounts.id.initialize({client_id:cfg.google_client_id,callback:resp=>{
+      fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:resp.credential})})
+        .then(r=>r.json()).then(d=>{if(d.ok){location.href='/chat';}else{document.getElementById('err').textContent=d.error||'Google sign-in failed';}});
+    }});
+    google.accounts.id.renderButton(document.getElementById('gwrap'),{theme:'filled_black',size:'large',width:316,shape:'pill',text:'continue_with'});
+  };
+  document.head.appendChild(s);
+});
+</script>
+</body>
+</html>
+"""
+
+RESET_PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova AI — Reset password</title>
+<link rel="icon" href="/nova-logo.png">
+<style>
+:root{--bg:#050505;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--no:#E06666}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#12100A,var(--bg));color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:390px;padding:40px 36px;border-radius:22px;border:1px solid var(--line);background:rgba(10,10,12,.9);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.logo{width:54px;height:54px;border-radius:15px;background:radial-gradient(circle at 30% 30%,#E5CD8E,#C9A961 60%,#8a733a);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#111;margin-bottom:20px}
+h1{font-size:21px;margin-bottom:4px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:26px;line-height:1.5}
+label{display:block;font-size:12px;color:var(--dim);margin:14px 0 6px;letter-spacing:.05em}
+input{width:100%;background:#0C0C0E;border:1px solid var(--line);color:var(--txt);padding:13px 14px;border-radius:12px;font-size:14px;outline:none}
+input:focus{border-color:var(--gold)}
+button{width:100%;margin-top:22px;padding:13px;border-radius:12px;border:none;background:var(--gold);color:#111;font-weight:700;font-size:14px;cursor:pointer}
+button:hover{background:var(--gold2)}
+.msg{color:var(--gold2);font-size:13px;margin-top:12px;min-height:16px;word-break:break-all}
+.err{color:var(--no);font-size:12.5px;margin-top:10px;min-height:16px}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo"><img src="/nova-logo.png" style="width:54px;height:54px;border-radius:15px;object-fit:cover"></div>
+<h1>Set a new password</h1>
+<div class="sub">Choose a new password for your Nova AI account.</div>
+<label>New password</label><input id="pw" type="password" placeholder="At least 4 characters">
+<div class="err" id="err"></div>
+<div class="msg" id="msg"></div>
+<button onclick="go()">Update password</button>
+</div>
+<script>
+const token=new URLSearchParams(location.search).get('token');
+async function go(){
+  const err=document.getElementById('err'),msg=document.getElementById('msg');
+  err.textContent='';msg.textContent='';
+  const r=await fetch('/api/auth/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,password:document.getElementById('pw').value})});
+  const d=await r.json();
+  if(d.ok){msg.textContent=d.note;setTimeout(()=>location.href='/',1800);}
+  else{err.textContent=d.error||'Something went wrong';}
+}
+</script>
+</body>
+</html>
+"""
+
+ADMIN_PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova AI — Admin</title>
+<link rel="icon" href="/nova-logo.png">
+<style>
+:root{--bg:#050505;--bg2:#0A0A0C;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--ok:#5EC8A5;--no:#E06666}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;padding:34px 22px 80px}
+.wrap{max-width:980px;margin:0 auto}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:26px;flex-wrap:wrap}
+.logo{width:40px;height:40px;border-radius:10px;background:radial-gradient(circle at 30% 30%,#E5CD8E,#C9A961 60%,#8a733a);display:flex;align-items:center;justify-content:center;font-weight:800;color:#111}
+h1{font-size:20px;letter-spacing:.06em}
+.top .who{color:var(--dim);font-size:13px;margin-left:auto}
+a{color:var(--gold);text-decoration:none;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:26px}
+.stat{border:1px solid var(--line);border-radius:16px;padding:18px 20px;background:var(--bg2)}
+.stat b{display:block;font-size:26px;color:var(--gold);margin-bottom:4px}
+.stat span{font-size:12.5px;color:var(--dim)}
+.sec{border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:20px;background:var(--bg2)}
+.sec h2{font-size:14px;letter-spacing:.08em;color:var(--gold);margin-bottom:14px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+button{padding:10px 16px;border-radius:10px;border:none;background:#141416;color:var(--txt);font-size:13px;cursor:pointer;transition:.15s}
+button:hover{border:1px solid var(--gold);color:var(--gold)}
+button.gold{background:var(--gold);color:#111;font-weight:700}
+button.gold:hover{background:var(--gold2);color:#111}
+button.danger{background:#2A2323;color:var(--no);border:1px solid #3A2A2A}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--dim);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.04em}
+td{padding:9px 10px;border-bottom:1px solid #151518;vertical-align:top}
+td small{color:var(--dim)}
+.out{background:#0E0E10;border:1px solid var(--line);border-radius:10px;padding:14px;font-family:Consolas,monospace;font-size:12.5px;white-space:pre-wrap;max-height:260px;overflow:auto;display:none}
+.row{display:flex;gap:8px;align-items:center}
+@media(max-width:640px){table{font-size:12px}th,td{padding:6px 6px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top">
+  <div class="logo"><img src="/nova-logo.png" style="width:40px;height:40px;border-radius:10px;object-fit:cover"></div>
+  <h1>NOVA ADMIN</h1>
+  <span class="who" id="who"></span>
+  <a href="/chat">Back to chat</a>
+</div>
+<div class="grid" id="stats"></div>
+<div class="sec">
+  <h2>ACTIONS</h2>
+  <div class="actions">
+    <button class="gold" onclick="backup()">Download full backup (JSON)</button>
+    <button class="gold" onclick="upgrade()">Self-upgrade (git pull)</button>
+    <button id="godbtn" onclick="toggleGod()">Global God Mode: OFF</button>
+    <button onclick="refresh()">Refresh data</button>
+  </div>
+  <div class="out" id="out"></div>
+</div>
+<div class="sec">
+  <h2>USERS · FULL ACCESS</h2>
+  <table>
+    <thead><tr><th>Name</th><th>Email</th><th>Provider</th><th>Signed up</th><th>Last seen</th><th>Chats</th><th>Events</th><th>Actions</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+<div class="sec">
+  <h2>RECENT ACTIVITY</h2>
+  <table><tbody id="events"></tbody></table>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+function showOut(t){const o=$('out');o.style.display='block';o.textContent=t;}
+async function refresh(){
+  const [s,u,e]=await Promise.all([
+    fetch('/api/activity').then(r=>r.json()),
+    fetch('/api/admin/users').then(r=>r.json()),
+    fetch('/api/admin/activity').then(r=>r.json()),
+  ]);
+  const clients=s.clients||[];
+  $('stats').innerHTML=[
+    ['Users',clients.length],
+    ['Total chats',clients.reduce((a,c)=>a+(c.chats||0),0)],
+    ['Total events',clients.reduce((a,c)=>a+(c.events||0),0)],
+    ['Recent events',(e.events||[]).length],
+  ].map(x=>`<div class="stat"><b>${x[1]}</b><span>${x[0]}</span></div>`).join('');
+  $('rows').innerHTML=(u.users||[]).map(x=>`<tr>
+    <td><b>${esc(x.name)}</b></td>
+    <td>${esc(x.email)}</td>
+    <td><small>${esc(x.provider)}</small></td>
+    <td><small>${x.signed_up?new Date(x.signed_up*1000).toLocaleString():'—'}</small></td>
+    <td><small>${x.last_seen?new Date(x.last_seen*1000).toLocaleString():'—'}</small></td>
+    <td>${x.chats||0}</td>
+    <td>${x.events||0}</td>
+    <td><div class="row">
+      <button onclick="resetPw(${x.id})">Reset password</button>
+      <button class="danger" onclick="del(${x.id},'${esc(x.email)}')">Delete</button>
+    </div></td></tr>`).join('');
+  $('events').innerHTML=(e.events||[]).map(x=>`<tr>
+    <td><small>${new Date(x.ts*1000).toLocaleString()}</small></td>
+    <td><b>${esc(x.action)}</b></td>
+    <td><small>${esc(x.email||'')} ${esc(x.detail||'')}</small></td></tr>`).join('');
+}
+async function backup(){
+  showOut('Preparing backup…');
+  const r=await fetch('/api/admin/backup');
+  const blob=await r.blob();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='nova-backup.json';
+  a.click();
+  showOut('Backup downloaded. Keep it safe — upload it to your own cloud storage.');
+}
+async function upgrade(){
+  showOut('Running self-upgrade…');
+  const r=await fetch('/api/admin/upgrade',{method:'POST'});
+  const d=await r.json();
+  showOut(d.ok?'Upgrade OK — latest code pulled:\n'+(d.out||''):'Upgrade failed:\n'+(d.error||d.out||''));
+}
+async function toggleGod(){
+  const r=await fetch('/api/admin/god',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:godNow})});
+  const d=await r.json();
+  godNow=!godNow;
+  $('godbtn').textContent='Global God Mode: '+(godNow?'ON':'OFF');
+  showOut(d.ok?'Global God Mode is now '+(godNow?'ON':'OFF')+'. All approvals auto-accept.':'Failed.');
+}
+let godNow=false;
+async function resetPw(uid){
+  const r=await fetch('/api/admin/reset-user-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})});
+  const d=await r.json();
+  showOut(d.ok?('Reset link for '+d.email+':\n'+d.link):(d.error||'Failed.'));
+}
+async function del(uid,email){
+  if(!confirm('Delete user '+email+' and all their activity? This cannot be undone.'))return;
+  const r=await fetch('/api/admin/delete-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})});
+  const d=await r.json();
+  showOut(d.ok?'User deleted.':(d.error||'Failed.'));
+  refresh();
+}
+$('who').textContent='Signed in as owner: '+location.host;
+refresh();
 </script>
 </body>
 </html>
@@ -361,6 +699,10 @@ def login():
 
 @app.route("/logout")
 def logout():
+    try:
+        db.log_activity(session.get("uid"), session.get("email"), "logout", "Signed out")
+    except Exception:
+        pass
     session.clear()
     return redirect("/")
 
@@ -388,19 +730,193 @@ def auth():
         uid = db.create_user(name, email, hash_pw(pw))
         session["uid"] = uid
         session["name"] = name
+        session["email"] = email
+        db.log_activity(uid, email, "signup", f"Created account via email (provider: email)")
         return jsonify({"ok": True, "name": name})
     user = db.get_user_by_email(email)
     if not user or not verify_pw(pw, user["password_hash"]):
         return jsonify({"ok": False, "error": "Wrong email or password."})
     session["uid"] = user["id"]
     session["name"] = user["name"]
+    session["email"] = user["email"]
+    db.log_activity(user["id"], user["email"], "login", "Signed in with email + password")
     return jsonify({"ok": True, "name": user["name"]})
+
+
+@app.route("/api/auth/google", methods=["POST"])
+def auth_google():
+    data = request.json or {}
+    id_token = (data.get("credential") or "").strip()
+    if not id_token:
+        return jsonify({"ok": False, "error": "Missing Google credential."})
+    info, err = google_verify(id_token)
+    if err:
+        return jsonify({"ok": False, "error": err})
+    email = info["email"].lower()
+    name = info.get("name") or email.split("@")[0]
+    user = db.get_user_by_email(email)
+    if not user:
+        # auto-create account on first Google sign-in
+        uid = db.create_user(name, email, hash_pw(os.urandom(16).hex() + str(time.time())))
+        session["uid"] = uid
+        session["name"] = name
+        session["email"] = email
+        db.log_activity(uid, email, "signup", "Created account via Google Sign-In")
+        return jsonify({"ok": True, "name": name, "new": True})
+    session["uid"] = user["id"]
+    session["name"] = user["name"]
+    session["email"] = user["email"]
+    db.log_activity(user["id"], email, "login", "Signed in with Google")
+    return jsonify({"ok": True, "name": user["name"]})
+
+
+@app.route("/api/auth/forgot", methods=["POST"])
+def forgot():
+    """Step 1 of password reset: request a reset link for an email."""
+    import secrets
+    email = ((request.json or {}).get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"ok": False, "error": "Email is required."})
+    user = db.get_user_by_email(email)
+    if not user:
+        # Do not reveal whether the account exists — same message either way.
+        return jsonify({"ok": True, "sent": False, "note": "If that email is registered, a reset link is on its way."})
+    token = secrets.token_urlsafe(24)
+    db.create_reset_token(user["id"], token)
+    link = _reset_link(token)
+    sent = _send_reset_email(email, link)
+    db.log_activity(user["id"], email, "forgot", f"Password reset requested (email {'sent' if sent else 'returned'})")
+    if sent:
+        return jsonify({"ok": True, "sent": True, "note": "Reset link sent to your email."})
+    # No SMTP configured — hand the link back so the owner can pass it on.
+    return jsonify({"ok": True, "sent": False, "link": link, "note": "Reset link (SMTP not configured — share this with the account owner):"})
+
+
+@app.route("/api/auth/reset", methods=["POST"])
+def reset():
+    """Step 2 of password reset: use a valid token to set a new password."""
+    data = request.json or {}
+    token = (data.get("token") or "").strip()
+    pw = data.get("password") or ""
+    if not token or len(pw) < 4:
+        return jsonify({"ok": False, "error": "A token and a password of at least 4 characters are required."})
+    row = db.get_reset_token(token)
+    if not row or row["used"] or row["expires"] < time.time():
+        return jsonify({"ok": False, "error": "This reset link is invalid or has expired. Request a new one."})
+    db.consume_reset_token(row["id"])
+    db.set_password(row["user_id"], hash_pw(pw))
+    user = db.get_user_by_id(row["user_id"])
+    db.log_activity(row["user_id"], user["email"] if user else "", "reset", "Password reset completed")
+    return jsonify({"ok": True, "note": "Password updated. You can sign in now."})
+
+
+@app.route("/reset")
+def reset_page():
+    return RESET_PAGE
+
+
+# ---- Admin ---------------------------------------------------------------
+@app.route("/admin")
+@login_required
+@owner_required
+def admin():
+    return ADMIN_PAGE
+
+
+@app.route("/api/admin/users")
+@login_required
+@owner_required
+def admin_users():
+    return jsonify({"ok": True, "users": db.all_users()})
+
+
+@app.route("/api/admin/activity")
+@login_required
+@owner_required
+def admin_activity():
+    return jsonify({"ok": True, "events": db.list_activity(200)})
+
+
+@app.route("/api/admin/delete-user", methods=["POST"])
+@login_required
+@owner_required
+def admin_delete_user():
+    uid = int((request.json or {}).get("uid") or 0)
+    if uid == session.get("uid"):
+        return jsonify({"ok": False, "error": "You cannot delete your own admin account."})
+    db.delete_user(uid)
+    _log("admin", f"Deleted user {uid}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/reset-user-password", methods=["POST"])
+@login_required
+@owner_required
+def admin_reset_user_pw():
+    import secrets
+    uid = int((request.json or {}).get("uid") or 0)
+    user = db.get_user_by_id(uid)
+    if not user:
+        return jsonify({"ok": False, "error": "User not found."})
+    token = secrets.token_urlsafe(24)
+    db.create_reset_token(uid, token, ttl_hours=72)
+    link = _reset_link(token)
+    _log("admin", f"Admin generated reset link for user {uid}")
+    return jsonify({"ok": True, "link": link, "email": user["email"]})
+
+
+@app.route("/api/admin/backup")
+@login_required
+@owner_required
+def admin_backup():
+    """Full JSON export — download and keep it in your own cloud storage."""
+    data = db.full_backup()
+    blob = json.dumps(data, ensure_ascii=False, indent=1, default=str)
+    _log("admin", "Exported full backup")
+    resp = app.response_class(blob, mimetype="application/json")
+    resp.headers["Content-Disposition"] = "attachment; filename=nova-backup.json"
+    return resp
+
+
+@app.route("/api/admin/upgrade", methods=["POST"])
+@login_required
+@owner_required
+def admin_upgrade():
+    """Self-upgrade hook: pull the latest code from the GitHub repo (if any)."""
+    import subprocess
+    repo = ROOT
+    if not (repo / ".git").exists():
+        return jsonify({"ok": False, "error": "No git repo found on this machine — nothing to pull."})
+    try:
+        r = subprocess.run(
+            ["git", "pull", "--ff-only"],
+            cwd=str(repo), capture_output=True, text=True, timeout=90,
+        )
+        _log("admin", "Ran self-upgrade (git pull)")
+        return jsonify({"ok": r.returncode == 0, "out": (r.stdout + r.stderr)[-1200:]})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@app.route("/api/admin/god", methods=["POST"])
+@login_required
+@owner_required
+def admin_god():
+    on = bool((request.json or {}).get("on"))
+    config.GOD_MODE = on
+    _log("admin", f"Set global God Mode {'ON' if on else 'OFF'}")
+    return jsonify({"ok": True, "god": config.GOD_MODE})
 
 
 @app.route("/api/me")
 @login_required
 def me():
-    return jsonify({"name": session.get("name", "User"), "level": config.PERMISSION_LEVEL, "god": config.GOD_MODE})
+    return jsonify({
+        "name": session.get("name", "User"),
+        "level": config.PERMISSION_LEVEL,
+        "god": config.GOD_MODE,
+        "owner": is_owner(),
+    })
 
 
 @app.route("/api/god", methods=["POST"])
@@ -408,6 +924,7 @@ def me():
 def god():
     data = request.json or {}
     config.GOD_MODE = bool(data.get("on"))
+    _log("god", f"God Mode {'ON' if config.GOD_MODE else 'OFF'}")
     return jsonify({"god": config.GOD_MODE})
 
 
@@ -417,6 +934,7 @@ def chat_api():
     text = (request.json or {}).get("text", "")
     if not text.strip():
         return jsonify({"reply": "", "error": "Empty message."})
+    _log("chat", text[:300])
     if not agent.ready:
         return jsonify({"reply": "", "error": "Brain key missing — add GROQ_API_KEY to .env"})
     if _busy.locked():
@@ -437,6 +955,7 @@ def approvals():
 def decide():
     data = request.json or {}
     ok = approval.web_decide(data.get("token", ""), bool(data.get("ok")))
+    _log("approval", f"{'Approved' if ok else 'Denied'}: {data.get('token','')[:60]}")
     return jsonify({"ok": ok})
 
 
@@ -444,6 +963,19 @@ def decide():
 @login_required
 def audit():
     return jsonify(db.load_audit(15))
+
+
+@app.route("/api/activity")
+@login_required
+def activity():
+    """Owner analytics — who did what, per client + recent event stream."""
+    return jsonify({"clients": db.client_stats(), "events": db.list_activity(40)})
+
+
+@app.route("/api/config")
+@login_required
+def cfg():
+    return jsonify({"google_client_id": GOOGLE_CLIENT_ID or "", "owner": session.get("email")})
 
 
 if __name__ == "__main__":

@@ -69,9 +69,72 @@ def init_db():
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'email',
                 ts REAL NOT NULL
             )"""
         )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS activity (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                email TEXT,
+                action TEXT NOT NULL,
+                detail TEXT,
+                ts REAL NOT NULL
+            )"""
+        )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT NOT NULL UNIQUE,
+                used INTEGER NOT NULL DEFAULT 0,
+                ts REAL NOT NULL,
+                expires REAL NOT NULL
+            )"""
+        )
+    # migrate older users table if missing provider column
+    try:
+        with cursor() as c:
+            cols = [r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()]
+            if "provider" not in cols:
+                c.execute("ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT 'email'")
+    except Exception:
+        pass
+
+
+# ---- client activity (who did what) ------------------------------------
+def log_activity(user_id, email, action: str, detail: str = ""):
+    with cursor() as c:
+        c.execute(
+            "INSERT INTO activity (user_id, email, action, detail, ts) VALUES (?,?,?,?,?)",
+            (user_id, email, action, detail[:1500], time.time()),
+        )
+
+
+def list_activity(limit: int = 50) -> list[dict]:
+    with cursor() as c:
+        rows = c.execute(
+            """SELECT a.id, a.user_id, a.email, a.action, a.detail, a.ts
+               FROM activity a ORDER BY a.id DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def client_stats() -> list[dict]:
+    """Per-client summary: signups, last seen, message count, god toggles."""
+    with cursor() as c:
+        rows = c.execute(
+            """SELECT u.id, u.name, u.email, u.provider,
+                      u.ts AS signed_up,
+                      (SELECT COUNT(*) FROM activity a WHERE a.user_id=u.id) AS events,
+                      (SELECT MAX(a.ts) FROM activity a WHERE a.user_id=u.id) AS last_seen,
+                      (SELECT COUNT(*) FROM activity a WHERE a.user_id=u.id AND a.action='chat') AS chats,
+                      (SELECT COUNT(*) FROM activity a WHERE a.user_id=u.id AND a.action='god') AS god_toggles
+               FROM users u ORDER BY u.id DESC"""
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # ---- users ---------------------------------------------------------------
@@ -99,6 +162,78 @@ def get_user_by_id(user_id: int):
             "SELECT id, name, email FROM users WHERE id=?", (user_id,)
         ).fetchone()
     return dict(r) if r else None
+
+
+# ---- password reset tokens ----------------------------------------------
+def create_reset_token(user_id: int, token: str, ttl_hours: float = 24) -> None:
+    with cursor() as c:
+        c.execute(
+            "DELETE FROM reset_tokens WHERE user_id=? OR expires<?",
+            (user_id, time.time()),
+        )
+        c.execute(
+            "INSERT INTO reset_tokens (user_id, token, used, ts, expires) VALUES (?,?,0,?,?)",
+            (user_id, token, time.time(), time.time() + ttl_hours * 3600),
+        )
+
+
+def get_reset_token(token: str):
+    with cursor() as c:
+        r = c.execute(
+            "SELECT id, user_id, used, expires FROM reset_tokens WHERE token=?",
+            (token,),
+        ).fetchone()
+    return dict(r) if r else None
+
+
+def consume_reset_token(token_id: int) -> None:
+    with cursor() as c:
+        c.execute("UPDATE reset_tokens SET used=1 WHERE id=?", (token_id,))
+
+
+def set_password(user_id: int, password_hash: str) -> None:
+    with cursor() as c:
+        c.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
+
+
+# ---- admin ---------------------------------------------------------------
+def all_users() -> list[dict]:
+    with cursor() as c:
+        rows = c.execute(
+            """SELECT u.id, u.name, u.email, u.provider, u.ts AS signed_up,
+                      (SELECT COUNT(*) FROM activity a WHERE a.user_id=u.id) AS events,
+                      (SELECT MAX(a.ts) FROM activity a WHERE a.user_id=u.id) AS last_seen,
+                      (SELECT COUNT(*) FROM activity a WHERE a.user_id=u.id AND a.action='chat') AS chats
+               FROM users u ORDER BY u.id DESC"""
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_user(user_id: int) -> None:
+    with cursor() as c:
+        c.execute("DELETE FROM activity WHERE user_id=?", (user_id,))
+        c.execute("DELETE FROM reset_tokens WHERE user_id=?", (user_id,))
+        c.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+
+def full_backup() -> dict:
+    """Everything the owner might want to keep — JSON-safe export."""
+    with cursor() as c:
+        users = [dict(r) for r in c.execute("SELECT * FROM users ORDER BY id").fetchall()]
+        activity = [dict(r) for r in c.execute("SELECT * FROM activity ORDER BY id DESC LIMIT 5000").fetchall()]
+        messages = [dict(r) for r in c.execute("SELECT * FROM messages ORDER BY id").fetchall()]
+        notes = [dict(r) for r in c.execute("SELECT * FROM notes ORDER BY id DESC LIMIT 2000").fetchall()]
+        audit = [dict(r) for r in c.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 2000").fetchall()]
+        jobs = [dict(r) for r in c.execute("SELECT * FROM jobs ORDER BY id").fetchall()]
+    return {
+        "exported_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "users": users,
+        "activity": activity,
+        "messages": messages,
+        "notes": notes,
+        "audit": audit,
+        "jobs": jobs,
+    }
 
 
 # ---- messages ------------------------------------------------------------
