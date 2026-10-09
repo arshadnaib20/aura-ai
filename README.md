@@ -1,6 +1,8 @@
 # Nova
 
-**Nova AI** — a local, audited, approval-gated AI agent for your laptop.
+**Nova AI** — a local, audited, approval-gated AI agent for your laptop — now also **hosted live**.
+
+**Try it now:** https://arshadnaib20.pythonanywhere.com — create an account, sign in, and chat. Full email sign-up/sign-in, forgot-password reset, client activity dashboard, and an owner-only admin panel (owner: arshadnaib20@gmail.com) with JSON backup export and self-upgrade.
 
 ```
 You
@@ -39,8 +41,16 @@ pip install -r requirements.txt
 playwright install chromium
 
 # 4. Run Nova
-python -m nova.ui.cli
+python -m nova.ui.cli        # terminal
+python -m nova.ui.web        # ChatGPT-style web UI on localhost:5173
 ```
+
+## Live deployment (PythonAnywhere)
+
+The hosted version runs the same code via the WSGI entry point `nova/deploy_server.py`.
+Deployment notes: the server venv must match the web app's Python version, `.env` lives
+in the project root (the web app's working directory), and the owner email in `.env`
+(`OWNER_EMAIL`) is what unlocks the `/admin` panel.
 
 ## What Nova v1.0 can do
 
