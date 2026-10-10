@@ -1,5 +1,7 @@
 # Secrets — NEVER upload these
 .env
+.env.*
+!*.env.example
 
 # Runtime data
 nova.db
@@ -13,3 +15,6 @@ __pycache__/
 
 # Misc
 STOP
+*.log
+_shots/
+_check_db.py

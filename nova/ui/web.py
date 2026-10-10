@@ -125,13 +125,13 @@ def _send_reset_email(email: str, reset_url: str) -> bool:
     from email.mime.text import MIMEText
     try:
         msg = MIMEText(
-            "Hello,\n\nSomeone asked to reset the password for your Nova AI account "
+            "Hello,\n\nSomeone asked to reset the password for your Aura AI account "
             f"({email}). If that was you, open the link below within 24 hours:\n\n{reset_url}\n\n"
-            "If you did not ask for this, you can ignore this email.\n\n— Nova AI",
+            "If you did not ask for this, you can ignore this email.\n\n— Aura AI",
             "plain",
             "utf-8",
         )
-        msg["Subject"] = "Nova AI — reset your password"
+        msg["Subject"] = "Aura AI — reset your password"
         msg["From"] = config.MAIL_FROM
         msg["To"] = email
         with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as s:
@@ -153,7 +153,7 @@ PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nova AI</title>
+<title>Aura AI</title>
 <link rel="icon" href="/nova-logo.png">
 <style>
 :root{--bg:#050505;--bg2:#0A0A0C;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--ok:#5EC8A5;--no:#E06666}
@@ -237,9 +237,10 @@ button.send:disabled{opacity:.4;cursor:not-allowed}
 </head>
 <body>
 <div class="side">
-  <div class="brand"><img src="/nova-logo.png" style="width:34px;height:34px;border-radius:8px;object-fit:cover"><div><h1>NOVA AI</h1><small>YOUR LOCAL ASSISTANT</small></div></div>
+  <div class="brand"><img src="/nova-logo.png" style="width:34px;height:34px;border-radius:8px;object-fit:cover"><div><h1>AURA AI</h1><small>YOUR LOCAL ASSISTANT</small></div></div>
   <button class="newbtn" onclick="newChat()">+ New chat</button>
   <button class="newbtn" onclick="showClients()">Clients · activity</button>
+  <button class="newbtn" onclick="toggleVideoPanel()">Video Studio</button>
   <button class="newbtn" id="adminbtn" style="display:none" onclick="location.href='/admin'">Admin panel</button>
   <div style="padding:14px;font-size:11px;color:var(--dim);line-height:1.7;border-top:1px solid var(--line);margin-top:auto">
     Level <span id="lvl"></span> · every risky action asks you first.<br>All actions are audited.
@@ -253,9 +254,38 @@ button.send:disabled{opacity:.4;cursor:not-allowed}
   <div class="top"><b id="who"></b><div class="acc"><div class="av" id="av"></div><a class="logout" href="/logout">Sign out</a></div></div>
   <div class="chat" id="chat"></div>
   <div style="border-top:1px solid var(--line);padding:14px">
-    <div class="bar"><button class="mic" id="mic" onclick="toggleMic()" title="Voice input"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/></svg></button><input class="in" id="inp" placeholder="Ask Nova anything..." autocomplete="off"><button class="send" id="btn">Send</button></div>
+    <div class="bar"><button class="mic" id="mic" onclick="toggleMic()" title="Voice input"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/></svg></button><input class="in" id="inp" placeholder="Ask Aura anything..." autocomplete="off"><button class="send" id="btn">Send</button></div>
   </div>
   <canvas id="orb"></canvas>
+</div>
+<div id="vpanel" style="display:none;position:fixed;right:24px;top:24px;bottom:24px;width:380px;max-width:92vw;background:var(--bg2);border:1px solid var(--gold);border-radius:16px;z-index:50;display:none;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+  <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+    <b style="letter-spacing:.12em">VIDEO STUDIO</b>
+    <a href="javascript:void(0)" onclick="toggleVideoPanel()" style="color:var(--dim);font-size:16px;text-decoration:none">✕</a>
+  </div>
+  <div style="padding:16px 18px;overflow-y:auto;flex:1">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="vtab" id="vtabgen" onclick="vTab('gen')" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--gold);background:var(--gold);color:#111;font-weight:700;cursor:pointer">Generate</button>
+      <button class="vtab" id="vtabedit" onclick="vTab('edit')" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--txt);cursor:pointer">Edit</button>
+    </div>
+    <label style="display:block;font-size:11px;color:var(--dim);margin:8px 0 4px">PROMPT</label>
+    <textarea id="vprompt" rows="3" style="width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px;resize:vertical" placeholder="Describe the video you want..."></textarea>
+    <div id="vurlrow" style="display:none;margin-top:10px">
+      <label style="display:block;font-size:11px;color:var(--dim);margin:8px 0 4px">SOURCE VIDEO URL</label>
+      <input id="vurl" type="url" style="width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px" placeholder="https://...video.mp4">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <select id="vratio" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px;font-size:12px">
+        <option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option><option value="4:3">4:3</option>
+      </select>
+      <select id="vdur" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px;font-size:12px">
+        <option value="6">6s</option><option value="8">8s</option><option value="10">10s</option><option value="12">12s</option>
+      </select>
+    </div>
+    <button id="vgo" onclick="vRun()" style="width:100%;margin-top:14px;padding:12px;border-radius:12px;border:none;background:var(--gold);color:#111;font-weight:800;cursor:pointer">Generate video</button>
+    <div id="vmsg" style="margin-top:12px;font-size:12px;color:var(--dim);line-height:1.6"></div>
+    <div id="vout" style="margin-top:12px"></div>
+  </div>
 </div>
 <script>
 const chat=document.getElementById('chat'),inp=document.getElementById('inp'),btn=document.getElementById('btn');
@@ -341,13 +371,63 @@ async function me(){const r=await fetch('/api/me');const d=await r.json();
   document.getElementById('who').textContent=d.name;document.getElementById('av').textContent=d.name[0].toUpperCase();
   document.getElementById('lvl').textContent=d.level;
   document.getElementById('god').checked=!!d.god;
-  document.title='Nova AI — '+d.name;
+  document.title='Aura AI — '+d.name;
   if(d.owner){document.getElementById('adminbtn').style.display='block';}
 }
 inp.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
 btn.addEventListener('click',send);
 me();chat.appendChild(emptyHTML());
 setInterval(pollApprovals,2500);inp.focus();
+
+/* ---- Video Studio ---- */
+let vMode='gen';
+function toggleVideoPanel(){
+  const p=document.getElementById('vpanel');
+  const open=(p.style.display==='flex');
+  p.style.display=open?'none':'flex';
+  if(!open)vStatus();
+}
+function vTab(mode){
+  vMode=mode;
+  document.getElementById('vtabgen').style.background=mode==='gen'?'var(--gold)':'transparent';
+  document.getElementById('vtabgen').style.color=mode==='gen'?'#111':'var(--txt)';
+  document.getElementById('vtabedit').style.background=mode==='edit'?'var(--gold)':'transparent';
+  document.getElementById('vtabedit').style.color=mode==='edit'?'#111':'var(--txt)';
+  document.getElementById('vurlrow').style.display=mode==='edit'?'block':'none';
+  document.getElementById('vgo').textContent=mode==='gen'?'Generate video':'Edit video';
+}
+async function vStatus(){
+  try{
+    const r=await fetch('/api/video/status');const d=await r.json();
+    const m=document.getElementById('vmsg');
+    if(d.ok&&d.enabled){m.textContent='Ready. Model: '+d.model;}
+    else{m.textContent='Video Studio is not configured yet (no VIDEO_API_KEY). The panel will unlock once the owner adds a key.';}
+  }catch(e){}
+}
+async function vRun(){
+  const m=document.getElementById('vmsg'),out=document.getElementById('vout');
+  const prompt=document.getElementById('vprompt').value.trim();
+  const ratio=document.getElementById('vratio').value;
+  const dur=document.getElementById('vdur').value;
+  const url=document.getElementById('vurl').value.trim();
+  m.textContent='Working — video generation can take a few minutes...';out.innerHTML='';
+  try{
+    let d;
+    if(vMode==='gen'){
+      const r=await fetch('/api/video/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,duration:dur,ratio})});
+      d=await r.json();
+    }else{
+      const r=await fetch('/api/video/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,video_url:url})});
+      d=await r.json();
+    }
+    if(d.ok&&d.video_url){
+      m.textContent='Done. Video is ready:';
+      out.innerHTML='<video src="'+d.video_url+'" controls style="width:100%;border-radius:12px;background:#000"></video>';
+    }else{
+      m.textContent='Error: '+(d.error||'unknown');
+    }
+  }catch(e){m.textContent='Network error: '+e;}
+}
 
 /* ---- 3D voice orb (Three.js) ---- */
 const orbCanvas=document.getElementById('orb'),orbCtx=orbCanvas.getContext('2d');
@@ -400,7 +480,7 @@ AUTH_PAGE = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nova AI</title>
+<title>Aura AI</title>
 <link rel="icon" href="/nova-logo.png">
 <style>
 :root{--bg:#050505;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--no:#E06666}
@@ -427,7 +507,7 @@ button:hover{background:var(--gold2)}
 <div class="card">
 <div class="logo"><img src="/nova-logo.png" style="width:54px;height:54px;border-radius:15px;object-fit:cover"></div>
 <h1 id="t1">Welcome back</h1>
-<div class="sub" id="t2">Sign in to your Nova AI workspace.</div>
+<div class="sub" id="t2">Sign in to your Aura AI workspace.</div>
 <div id="gwrap"></div>
 <div class="or"><span>or</span></div>
 <form id="f" onsubmit="go(event)">
@@ -449,7 +529,7 @@ email=document.getElementById('email'),pw=document.getElementById('pw');
 function toggle(e){e.preventDefault();mode=mode==='login'?'signup':'login';
 namewrap.style.display=mode==='signup'?'block':'none';
 t1.textContent=mode==='signup'?'Create your account':'Welcome back';
-t2.textContent=mode==='signup'?'Start chatting with your personal Nova.':'Sign in to your Nova AI workspace.';
+t2.textContent=mode==='signup'?'Start chatting with your personal Aura.':'Sign in to your Aura AI workspace.';
 b.textContent=mode==='signup'?'Create account':'Sign in';
 l_pw.style.display='block';pw.style.display='block';
 alt.innerHTML=mode==='signup'?'Already have one? <a href="#" onclick="toggle(event)">Sign in</a>':'New here? <a href="#" onclick="toggle(event)">Create an account</a>';}
@@ -493,7 +573,7 @@ RESET_PAGE = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nova AI — Reset password</title>
+<title>Aura AI — Reset password</title>
 <link rel="icon" href="/nova-logo.png">
 <style>
 :root{--bg:#050505;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--no:#E06666}
@@ -516,7 +596,7 @@ button:hover{background:var(--gold2)}
 <div class="card">
 <div class="logo"><img src="/nova-logo.png" style="width:54px;height:54px;border-radius:15px;object-fit:cover"></div>
 <h1>Set a new password</h1>
-<div class="sub">Choose a new password for your Nova AI account.</div>
+<div class="sub">Choose a new password for your Aura AI account.</div>
 <label>New password</label><input id="pw" type="password" placeholder="At least 4 characters">
 <div class="err" id="err"></div>
 <div class="msg" id="msg"></div>
@@ -541,7 +621,7 @@ ADMIN_PAGE = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nova AI — Admin</title>
+<title>Aura AI — Admin</title>
 <link rel="icon" href="/nova-logo.png">
 <style>
 :root{--bg:#050505;--bg2:#0A0A0C;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--ok:#5EC8A5;--no:#E06666}
@@ -578,7 +658,7 @@ td small{color:var(--dim)}
 <div class="wrap">
 <div class="top">
   <div class="logo"><img src="/nova-logo.png" style="width:40px;height:40px;border-radius:10px;object-fit:cover"></div>
-  <h1>NOVA ADMIN</h1>
+  <h1>AURA ADMIN</h1>
   <span class="who" id="who"></span>
   <a href="/chat">Back to chat</a>
 </div>
@@ -645,7 +725,7 @@ async function backup(){
   const blob=await r.blob();
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='nova-backup.json';
+  a.download='aura-backup.json';
   a.click();
   showOut('Backup downloaded. Keep it safe — upload it to your own cloud storage.');
 }
@@ -874,7 +954,7 @@ def admin_backup():
     blob = json.dumps(data, ensure_ascii=False, indent=1, default=str)
     _log("admin", "Exported full backup")
     resp = app.response_class(blob, mimetype="application/json")
-    resp.headers["Content-Disposition"] = "attachment; filename=nova-backup.json"
+    resp.headers["Content-Disposition"] = "attachment; filename=aura-backup.json"
     return resp
 
 
@@ -938,10 +1018,44 @@ def chat_api():
     if not agent.ready:
         return jsonify({"reply": "", "error": "Brain key missing — add GROQ_API_KEY to .env"})
     if _busy.locked():
-        return jsonify({"reply": "", "error": "Nova is still busy with your previous message."})
+        return jsonify({"reply": "", "error": "Aura is still busy with your previous message."})
     with _busy:
         reply = agent.chat(text)
     return jsonify({"reply": reply})
+
+
+@app.route("/api/video/status")
+@login_required
+def video_status():
+    from ..tools import video as video_tool
+    return jsonify({"ok": True, **video_tool.status()})
+
+
+@app.route("/api/video/generate", methods=["POST"])
+@login_required
+def video_generate():
+    data = request.json or {}
+    from ..tools import video as video_tool
+    result = video_tool.generate(
+        prompt=data.get("prompt", ""),
+        duration=int(data.get("duration", 6)),
+        ratio=data.get("ratio", "16:9"),
+    )
+    _log("video", f"generate prompt={data.get('prompt','')[:200]}")
+    return jsonify(result)
+
+
+@app.route("/api/video/edit", methods=["POST"])
+@login_required
+def video_edit():
+    data = request.json or {}
+    from ..tools import video as video_tool
+    result = video_tool.edit(
+        prompt=data.get("prompt", ""),
+        video_url=data.get("video_url", ""),
+    )
+    _log("video", f"edit prompt={data.get('prompt','')[:200]}")
+    return jsonify(result)
 
 
 @app.route("/api/approvals")
@@ -981,6 +1095,6 @@ def cfg():
 if __name__ == "__main__":
     db.init_db()
     if not agent.ready:
-        print("[Nova] GROQ_API_KEY missing — chat will be offline until added to .env")
-    print("Nova web UI: http://127.0.0.1:5173  (Ctrl+C to stop)")
+        print("[Aura] GROQ_API_KEY missing — chat will be offline until added to .env")
+    print("Aura web UI: http://127.0.0.1:5173  (Ctrl+C to stop)")
     app.run(host="127.0.0.1", port=5173, debug=False, threaded=True)

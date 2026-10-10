@@ -11,7 +11,7 @@ from ..agent import NovaAgent
 
 def print_banner():
     print("=" * 56)
-    print("  NOVA AI — your audited, approval-gated assistant")
+    print("  AURA AI — your audited, approval-gated assistant")
     print(f"  model: {config.MODEL}   level: {config.PERMISSION_LEVEL}" + ("   GOD MODE ON" if config.GOD_MODE else ""))
     print(f"  workspace: {config.WORKSPACE}")
     print("  /exit /notes /audit /stop /level N /god /jobs /help")
@@ -94,7 +94,7 @@ def main():
             continue
 
         reply = agent.chat(user_input)
-        print(f"\nNova> {reply}\n")
+        print(f"\nAura> {reply}\n")
 
 
 if __name__ == "__main__":

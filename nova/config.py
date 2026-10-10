@@ -63,6 +63,16 @@ PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip()
 # This email gets full admin panel access. Everything is still audited.
 OWNER_EMAIL = os.getenv("OWNER_EMAIL", "arshadnaib20@gmail.com").strip().lower()
 
+# ---- Video Studio ---------------------------------------------------------
+# Optional. When VIDEO_API_KEY is set, the web UI unlocks the "Video Studio"
+# panel: generate a video from a prompt, or edit an existing video by URL.
+# Works with any OpenAI-compatible video endpoint (e.g. fal.ai, Replicate,
+# or a provider you configure). Leave empty to keep the panel hidden.
+VIDEO_API_KEY = os.getenv("VIDEO_API_KEY", "").strip()
+VIDEO_API_BASE = os.getenv("VIDEO_API_BASE", "").strip()
+VIDEO_MODEL = os.getenv("VIDEO_MODEL", "").strip()
+VIDEO_TIMEOUT = int(os.getenv("VIDEO_TIMEOUT", "300"))
+
 # ---- Mail (optional, used by "forgot password") ---------------------------
 # If SMTP_HOST is set, reset links are emailed; otherwise the link is shown
 # in the response (useful on free hosts without SMTP).

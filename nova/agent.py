@@ -4,7 +4,7 @@ import json
 from . import approval, config, db
 from .tools import apps, browser, files, notes, scheduler
 
-SYSTEM_PROMPT = """You are Nova, a helpful AI assistant that lives on the user's laptop.
+SYSTEM_PROMPT = """You are Aura, a helpful AI assistant that lives on the user's laptop.
 You can chat, remember notes, read/write files inside your workspace, browse the web,
 and open allowed apps. You have a permission level that decides when you ask approval.
 

@@ -1,13 +1,13 @@
-# Nova
+# Aura
 
-**Nova AI** — a local, audited, approval-gated AI agent for your laptop — now also **hosted live**.
+**Aura AI** — a local, audited, approval-gated AI agent for your laptop — now also **hosted live**.
 
 **Try it now:** https://arshadnaib20.pythonanywhere.com — create an account, sign in, and chat. Full email sign-up/sign-in, forgot-password reset, client activity dashboard, and an owner-only admin panel (owner: arshadnaib20@gmail.com) with JSON backup export and self-upgrade.
 
 ```
 You
  ├── CLI / Web UI / Voice
- └── Nova Agent Loop
+ └── Aura Agent Loop
         ├── Brain: Groq free API (or Ollama later)
         ├── Memory: SQLite
         ├── Audit Log: SQLite
@@ -21,7 +21,7 @@ You
 ```
 
 Everything risky goes through the Approval Gate.  
-Everything Nova does is written to the Audit Log.  
+Everything Aura does is written to the Audit Log.  
 Everything file-related stays inside `nova_workspace/`.
 
 ## Quick start
@@ -40,7 +40,7 @@ venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 playwright install chromium
 
-# 4. Run Nova
+# 4. Run Aura
 python -m nova.ui.cli        # terminal
 python -m nova.ui.web        # ChatGPT-style web UI on localhost:5173
 ```
@@ -52,7 +52,7 @@ Deployment notes: the server venv must match the web app's Python version, `.env
 in the project root (the web app's working directory), and the owner email in `.env`
 (`OWNER_EMAIL`) is what unlocks the `/admin` panel.
 
-## What Nova v1.0 can do
+## What Aura v1.0 can do
 
 - Chat with you (Groq brain)
 - Remember notes and conversations (SQLite)
@@ -63,7 +63,7 @@ in the project root (the web app's working directory), and the owner email in `.
 - Log everything to the audit log
 - Run on ~4GB RAM (brain is in the cloud; your laptop only runs Python + SQLite + optional browser)
 
-Nova will **not** run fully offline with a smart local model, open any app outside the
+Aura will **not** run fully offline with a smart local model, open any app outside the
 allowlist, act without approval on risky steps, or bypass safety.
 
 ## CLI commands
