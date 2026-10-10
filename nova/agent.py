@@ -36,7 +36,31 @@ Rules:
 - If a tool fails or is denied, tell the user what happened.
 - Never invent tool results. Use tools when you need real data.
 - Never claim you created, wrote, deleted, moved, opened, or sent something unless a tool call for it actually succeeded. If you want to do any of those, call the tool first — do not narrate the action as done.
+
+Math and formulas (book-style answers):
+- When the user asks a math, equation, physics, or formula question, answer like a clean textbook:
+  1. Write every formula in LaTeX between $$ ... $$ for a display line, or $ ... $ for inline math.
+  2. Show the steps one at a time, each with a short plain-language explanation.
+  3. Define every symbol the first time you use it (e.g. "x = unknown value, n = count").
+  4. End with a worked example or a one-line takeaway. Avoid jargon; if you must use a term, explain it simply.
+- Never answer with a bare formula and nothing else. Book-style = readable, stepped, defined, friendly.
 """
+
+
+LEARN_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "learn_fact",
+        "description": "Self-learning: permanently remember a fact, preference, or correction the user just told you. Use it when the user says 'remember that', 'teach you', 'always keep in mind', or corrects you about themselves.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "fact": {"type": "string", "description": "The fact to remember, as a clear short sentence."}
+            },
+            "required": ["fact"],
+        },
+    },
+}
 
 
 def _tool_schemas() -> list:
@@ -117,6 +141,7 @@ def _tool_schemas() -> list:
                 "parameters": {"type": "object", "properties": {}},
             },
         },
+        LEARN_SCHEMA,
         browser.TOOL_SCHEMA_OPEN,
         browser.TOOL_SCHEMA_GET_TEXT,
         {
@@ -177,7 +202,7 @@ def _ask(action: str, details: str = "") -> bool:
     return approval.ask_approval(action, details)
 
 
-def _dispatch(name: str, args: dict) -> str:
+def _dispatch(name: str, args: dict, user_id=None) -> str:
     """Run a tool. Risky tools go through the approval gate first."""
     try:
         if name == "list_files":
@@ -202,6 +227,9 @@ def _dispatch(name: str, args: dict) -> str:
             return notes.search_notes(args["query"])
         if name == "list_notes":
             return notes.list_notes()
+        if name == "learn_fact":
+            db.add_learned_fact(user_id, args.get("fact", "").strip()[:500], source="agent")
+            return "Learned and saved to memory. I will remember this from now on."
         if name == "browser_open":
             db.log_audit("browser_open", args["url"])
             return browser.browser_open(args["url"])
@@ -250,7 +278,7 @@ class NovaAgent:
     def ready(self) -> bool:
         return self.client is not None
 
-    def chat(self, user_text: str, history_limit: int = 16) -> str:
+    def chat(self, user_text: str, history_limit: int = 16, user_id: int = None, attachments: list = None) -> str:
         """One user turn -> Nova reply. Returns the final assistant text."""
         if not self.ready:
             return (
@@ -261,7 +289,42 @@ class NovaAgent:
 
         db.save_message("user", user_text)
         history = db.load_messages(history_limit)
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+
+        # Self-learning: inject what Aura has learned about THIS user.
+        system = SYSTEM_PROMPT
+        try:
+            if user_id:
+                facts = db.list_learned_facts(user_id, limit=40)
+                if facts:
+                    learned = "\n".join(f"- {f['fact']}" for f in facts)
+                    system += (
+                        "\n\nWhat I have learned about this user (always respect and use these "
+                        "facts in your answers):\n" + learned
+                    )
+        except Exception:
+            pass
+
+        # Attachments: give Aura the names/types and any text preview content.
+        if attachments:
+            parts = []
+            for a in attachments:
+                if not isinstance(a, dict):
+                    continue
+                desc = f"- {a.get('name', 'file')} ({a.get('kind', 'file')}) at {a.get('url', '')}"
+                preview = (a.get("content") or "").strip()
+                if preview:
+                    desc += f"\n  [text preview]\n  {preview[:2500]}"
+                parts.append(desc)
+            if parts:
+                system += (
+                    "\n\nIn the current message the user attached these files:\n"
+                    + "\n".join(parts)
+                    + "\nUse the text previews to answer if relevant. For images and videos you "
+                    "cannot see the content — acknowledge the file was received and is linked, "
+                    "then offer the next step."
+                )
+
+        messages = [{"role": "system", "content": system}] + history
 
         for _ in range(8):  # cap tool-call rounds
             try:
@@ -287,7 +350,7 @@ class NovaAgent:
                         args = json.loads(tc.function.arguments or "{}")
                     except json.JSONDecodeError:
                         args = {}
-                    result = _dispatch(name, args)
+                    result = _dispatch(name, args, user_id=user_id)
                     db.log_audit(name, json.dumps(args, ensure_ascii=False)[:500])
                     messages.append(
                         {

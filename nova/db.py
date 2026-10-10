@@ -108,12 +108,23 @@ def init_db():
                 ts REAL NOT NULL
             )"""
         )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS learned_facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                fact TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'user',
+                ts REAL NOT NULL
+            )"""
+        )
     # migrate older users table if missing provider column
     try:
         with cursor() as c:
             cols = [r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()]
             if "provider" not in cols:
                 c.execute("ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT 'email'")
+            if "theme" not in cols:
+                c.execute("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'")
     except Exception:
         pass
 
@@ -203,6 +214,17 @@ def get_user_by_id(user_id: int):
             "SELECT id, name, email FROM users WHERE id=?", (user_id,)
         ).fetchone()
     return dict(r) if r else None
+
+
+def set_theme(user_id: int, theme: str) -> None:
+    with cursor() as c:
+        c.execute("UPDATE users SET theme=? WHERE id=?", (theme, user_id))
+
+
+def get_theme(user_id: int) -> str:
+    with cursor() as c:
+        r = c.execute("SELECT theme FROM users WHERE id=?", (user_id,)).fetchone()
+    return r["theme"] if r else "dark"
 
 
 # ---- password reset tokens ----------------------------------------------
@@ -301,6 +323,32 @@ def add_note(content: str):
         c.execute(
             "INSERT INTO notes (content, ts) VALUES (?,?)",
             (content, time.time()),
+        )
+
+
+# ---- learned facts (self-learning memory) --------------------------------
+def add_learned_fact(user_id, fact: str, source: str = "user") -> None:
+    with cursor() as c:
+        c.execute(
+            "INSERT INTO learned_facts (user_id, fact, source, ts) VALUES (?,?,?,?)",
+            (user_id, fact, source, time.time()),
+        )
+
+
+def list_learned_facts(user_id, limit: int = 40) -> list[dict]:
+    with cursor() as c:
+        rows = c.execute(
+            """SELECT id, fact, source, ts FROM learned_facts
+               WHERE user_id=? ORDER BY id DESC LIMIT ?""",
+            (user_id, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_learned_fact(user_id, fact_id: int) -> None:
+    with cursor() as c:
+        c.execute(
+            "DELETE FROM learned_facts WHERE id=? AND user_id=?", (fact_id, user_id)
         )
 
 
