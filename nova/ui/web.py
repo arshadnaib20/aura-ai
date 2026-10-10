@@ -904,7 +904,7 @@ async function upgrade(){
   showOut('Running self-upgrade…');
   const r=await fetch('/api/admin/upgrade',{method:'POST'});
   const d=await r.json();
-  showOut(d.ok?'Upgrade OK — latest code pulled:\n'+(d.out||''):'Upgrade failed:\n'+(d.error||d.out||''));
+  showOut(d.ok?'Upgrade OK — latest code pulled:\\n'+(d.out||''):'Upgrade failed:\\n'+(d.error||d.out||''));
 }
 async function toggleGod(){
   const r=await fetch('/api/admin/god',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:godNow})});
@@ -917,7 +917,7 @@ let godNow=false;
 async function resetPw(uid){
   const r=await fetch('/api/admin/reset-user-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})});
   const d=await r.json();
-  showOut(d.ok?('Reset link for '+d.email+':\n'+d.link):(d.error||'Failed.'));
+  showOut(d.ok?('Reset link for '+d.email+':\\n'+d.link):(d.error||'Failed.'));
 }
 async function del(uid,email){
   if(!confirm('Delete user '+email+' and all their activity? This cannot be undone.'))return;
