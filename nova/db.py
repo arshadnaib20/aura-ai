@@ -93,6 +93,21 @@ def init_db():
                 expires REAL NOT NULL
             )"""
         )
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS surveys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                name TEXT,
+                email TEXT,
+                rating INTEGER,
+                speed TEXT,
+                useful TEXT,
+                missing TEXT,
+                recommend TEXT,
+                note TEXT,
+                ts REAL NOT NULL
+            )"""
+        )
     # migrate older users table if missing provider column
     try:
         with cursor() as c:
@@ -101,6 +116,32 @@ def init_db():
                 c.execute("ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT 'email'")
     except Exception:
         pass
+
+
+# ---- surveys ------------------------------------------------------------
+def add_survey(user_id, name, email, rating, speed, useful, missing, recommend, note):
+    with cursor() as c:
+        c.execute(
+            """INSERT INTO surveys (user_id, name, email, rating, speed, useful, missing, recommend, note, ts)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (user_id, name, email, rating, speed, useful, missing, recommend, note, time.time()),
+        )
+
+
+def list_surveys(limit: int = 300) -> list[dict]:
+    with cursor() as c:
+        rows = c.execute(
+            """SELECT * FROM surveys ORDER BY id DESC LIMIT ?""", (limit,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def survey_stats() -> dict:
+    with cursor() as c:
+        rows = c.execute("SELECT rating FROM surveys").fetchall()
+    n = len(rows)
+    avg = round(sum(r["rating"] for r in rows) / n, 1) if n else 0
+    return {"count": n, "avg": avg}
 
 
 # ---- client activity (who did what) ------------------------------------
