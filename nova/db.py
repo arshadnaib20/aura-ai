@@ -33,6 +33,7 @@ def init_db():
         c.execute(
             """CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
                 ts REAL NOT NULL
@@ -125,6 +126,14 @@ def init_db():
                 c.execute("ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT 'email'")
             if "theme" not in cols:
                 c.execute("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'")
+    except Exception:
+        pass
+    # migrate older messages table if missing user_id column
+    try:
+        with cursor() as c:
+            cols = [r[1] for r in c.execute("PRAGMA table_info(messages)").fetchall()]
+            if "user_id" not in cols:
+                c.execute("ALTER TABLE messages ADD COLUMN user_id INTEGER")
     except Exception:
         pass
 
@@ -300,20 +309,26 @@ def full_backup() -> dict:
 
 
 # ---- messages ------------------------------------------------------------
-def save_message(role: str, content: str):
+def save_message(role: str, content: str, user_id: int = None):
     with cursor() as c:
         c.execute(
-            "INSERT INTO messages (role, content, ts) VALUES (?,?,?)",
-            (role, content, time.time()),
+            "INSERT INTO messages (user_id, role, content, ts) VALUES (?,?,?,?)",
+            (user_id, role, content, time.time()),
         )
 
 
-def load_messages(limit: int = 20) -> list[dict]:
+def load_messages(limit: int = 20, user_id: int = None) -> list[dict]:
     with cursor() as c:
-        rows = c.execute(
-            "SELECT role, content FROM messages ORDER BY id DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
+        if user_id is None:
+            rows = c.execute(
+                "SELECT role, content FROM messages WHERE user_id IS NULL ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        else:
+            rows = c.execute(
+                "SELECT role, content FROM messages WHERE user_id=? ORDER BY id DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
     return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
 
 

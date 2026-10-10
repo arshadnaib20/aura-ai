@@ -9,7 +9,8 @@ except Exception:
     pass
 
 # ---- Paths ---------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_HOME = os.environ.get("AURA_HOME")
+PROJECT_ROOT = Path(_HOME) if _HOME else Path(__file__).resolve().parent.parent
 LOGS_DIR = PROJECT_ROOT / "logs"
 DB_PATH = PROJECT_ROOT / "nova.db"
 STOP_FILE = PROJECT_ROOT / "STOP"
@@ -21,16 +22,21 @@ BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 
 # Fallback models tried in order when the primary brain is rate-limited (429)
 # or fails. Different models have separate quotas, so chats keep working.
+# Verified live 2026-10: gpt-oss-120b/20b, qwen3.8-27b, allam-2-7b are valid on Groq.
 FALLBACK_MODELS = [
     m.strip() for m in os.getenv(
         "FALLBACK_MODELS",
-        "llama-3.1-8b-instant,llama-3.3-70b-versatile,gemma2-9b-it,mixtral-8x7b-32768",
+        "openai/gpt-oss-20b,qwen/qwen3.8-27b,allam-2-7b",
     ).split(",") if m.strip()
 ]
 # Optional second provider (any OpenAI-compatible API). Leave empty to skip.
 ALT_API_KEY = os.getenv("ALT_API_KEY", "").strip()
-ALT_BASE_URL = os.getenv("ALT_BASE_URL", "").strip() or "https://api.deepseek.com/v1"
-ALT_MODEL = os.getenv("ALT_MODEL", "").strip() or "deepseek-chat"
+ALT_BASE_URL = os.getenv("ALT_BASE_URL", "").strip() or "https://generativelanguage.googleapis.com/v1beta/openai"
+ALT_MODEL = os.getenv("ALT_MODEL", "").strip() or "gemini-flash-latest"
+# Optional third provider (e.g. DeepSeek). Leave empty to skip.
+ALT2_API_KEY = os.getenv("ALT2_API_KEY", "").strip()
+ALT2_BASE_URL = os.getenv("ALT2_BASE_URL", "").strip() or "https://api.deepseek.com/v1"
+ALT2_MODEL = os.getenv("ALT2_MODEL", "").strip() or "deepseek-chat"
 
 # ---- Workspace sandbox ---------------------------------------------------
 WORKSPACE = (PROJECT_ROOT / os.getenv("WORKSPACE", "./nova_workspace")).resolve()

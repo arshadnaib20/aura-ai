@@ -26,7 +26,8 @@ from .. import approval
 os.environ["APPROVAL_MODE"] = "web"
 config.APPROVAL_MODE = "web"
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+_HOME = os.environ.get("AURA_HOME")
+ROOT = Path(_HOME) if _HOME else Path(__file__).resolve().parent.parent.parent
 
 app = Flask(__name__)
 app.secret_key = config.WEB_SECRET
@@ -159,16 +160,42 @@ PAGE = """<!doctype html>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
-:root,[data-theme="dark"]{--bg:#050505;--bg2:#0A0A0C;--bg3:#0C0C10;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--line2:#26262C;--ok:#5EC8A5;--no:#E06666;--inp:#0C0C0E;--hover:#101014;--footbg:#08080A;--chip:#0E0E10;--panel:linear-gradient(180deg,#12100A,#0A0A0C);--goldglow:rgba(201,169,97,.35);--ongold:#111;--goldsoft:#8a733a;--denybg:#2A2323;--denyline:#3A2A2A;--oktxt:#04170F;--dash:#17171B;--codebg:#141416;--codepre:#0E0E10;--logograd:radial-gradient(circle at 30% 30%,#E5CD8E,#C9A961 60%,#8a733a);--topbg:rgba(8,8,10,.7);--panelbg:rgba(10,10,12,.9)}
-[data-theme="light"]{--bg:#F6F6F8;--bg2:#FFFFFF;--bg3:#EFEFF2;--gold:#B8860B;--gold2:#8F6B1A;--txt:#1A1A1F;--dim:#6B6B76;--line:#E3E3E8;--line2:#D5D5DB;--ok:#15803D;--no:#B91C1C;--inp:#FFFFFF;--hover:#EFEFF2;--footbg:#F1F1F4;--chip:#FFFFFF;--panel:linear-gradient(180deg,#FFFFFF,#F6F6F8);--goldglow:rgba(184,134,11,.3);--ongold:#FFFFFF;--goldsoft:#B8860B;--denybg:#FBE9E7;--denyline:#F2C6C2;--oktxt:#052E16;--dash:#DADAE0;--codebg:#F2F2F4;--codepre:#FFFFFF;--logograd:radial-gradient(circle at 30% 30%,#D4AF37,#B8860B 60%,#8F6B1A);--topbg:rgba(255,255,255,.8);--panelbg:rgba(255,255,255,.94)}
-[data-theme="mint"]{--bg:#FFFFFF;--bg2:#F7F7F8;--bg3:#ECECEF;--gold:#10A37F;--gold2:#0E8E6E;--txt:#0D0D0D;--dim:#6E6E73;--line:#E5E5E8;--line2:#D6D6DB;--ok:#0E8E6E;--no:#D9534F;--inp:#FFFFFF;--hover:#ECECEF;--footbg:#F7F7F8;--chip:#FFFFFF;--panel:linear-gradient(180deg,#FFFFFF,#F7F7F8);--goldglow:rgba(16,163,127,.3);--ongold:#FFFFFF;--goldsoft:#0E8E6E;--denybg:#FBE9E7;--denyline:#F2C6C2;--oktxt:#052E16;--dash:#D9D9DE;--codebg:#F2F2F4;--codepre:#FFFFFF;--logograd:radial-gradient(circle at 30% 30%,#34D399,#10A37F 60%,#0E8E6E);--topbg:rgba(255,255,255,.85);--panelbg:rgba(255,255,255,.96)}
-[data-theme="aurora"]{--bg:#07070F;--bg2:#0B0B18;--bg3:#10102A;--gold:#7C5CFF;--gold2:#B8A6FF;--txt:#EAE8FF;--dim:#8B87B0;--line:#1D1B3A;--line2:#262445;--ok:#5EE8C5;--no:#E06666;--inp:#0E0E22;--hover:#14122E;--footbg:#0A0A16;--chip:#0E0C26;--panel:linear-gradient(180deg,#14122E,#0B0B18);--goldglow:rgba(124,92,255,.35);--ongold:#0B0B18;--goldsoft:#4A38B8;--denybg:#2A1424;--denyline:#43233A;--oktxt:#052E16;--dash:#1E1C42;--codebg:#12102A;--codepre:#0E0C26;--logograd:radial-gradient(circle at 30% 30%,#B8A6FF,#7C5CFF 60%,#4A38B8);--topbg:rgba(10,10,26,.7);--panelbg:rgba(12,10,30,.92)}
+:root,[data-theme="dark"]{--bg:#050505;--bg2:#0A0A0C;--bg3:#0C0C10;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--line2:#26262C;--ok:#5EC8A5;--no:#E06666;--inp:#0C0C0E;--hover:#101014;--footbg:#08080A;--chip:#0E0E10;--panel:linear-gradient(180deg,#12100A,#0A0A0C);--goldglow:rgba(201,169,97,.35);--ongold:#111;--goldsoft:#8a733a;--denybg:#2A2323;--denyline:#3A2A2A;--oktxt:#04170F;--dash:#17171B;--codebg:#141416;--codepre:#0E0E10;--logograd:radial-gradient(circle at 30% 30%,#E5CD8E,#C9A961 60%,#8a733a);--topbg:rgba(8,8,10,.7);--panelbg:rgba(10,10,12,.9);--ubub:#1B1B20;--utxt:#EDEAE2;--nbub:#0E0E10;--ntxt:#EDEAE2;--chatglow:radial-gradient(900px 480px at 50% -20%,rgba(201,169,97,.06),transparent 62%)}
+[data-theme="light"]{--bg:#F6F6F8;--bg2:#FFFFFF;--bg3:#EFEFF2;--gold:#B8860B;--gold2:#8F6B1A;--txt:#1A1A1F;--dim:#6B6B76;--line:#E3E3E8;--line2:#D5D5DB;--ok:#15803D;--no:#B91C1C;--inp:#FFFFFF;--hover:#EFEFF2;--footbg:#F1F1F4;--chip:#FFFFFF;--panel:linear-gradient(180deg,#FFFFFF,#F6F6F8);--goldglow:rgba(184,134,11,.3);--ongold:#FFFFFF;--goldsoft:#B8860B;--denybg:#FBE9E7;--denyline:#F2C6C2;--oktxt:#052E16;--dash:#DADAE0;--codebg:#F2F2F4;--codepre:#FFFFFF;--logograd:radial-gradient(circle at 30% 30%,#D4AF37,#B8860B 60%,#8F6B1A);--topbg:rgba(255,255,255,.8);--panelbg:rgba(255,255,255,.94);--ubub:#F3EFE4;--utxt:#1A1A1F;--nbub:#FFFFFF;--ntxt:#1A1A1F;--chatglow:radial-gradient(900px 480px at 50% -20%,rgba(184,134,11,.06),transparent 62%)}
+[data-theme="mint"]{--bg:#FFFFFF;--bg2:#F7F7F8;--bg3:#ECECEF;--gold:#10A37F;--gold2:#0E8E6E;--txt:#0D0D0D;--dim:#6E6E73;--line:#E5E5E8;--line2:#D6D6DB;--ok:#0E8E6E;--no:#D9534F;--inp:#FFFFFF;--hover:#ECECEF;--footbg:#F7F7F8;--chip:#FFFFFF;--panel:linear-gradient(180deg,#FFFFFF,#F7F7F8);--goldglow:rgba(16,163,127,.3);--ongold:#FFFFFF;--goldsoft:#0E8E6E;--denybg:#FBE9E7;--denyline:#F2C6C2;--oktxt:#052E16;--dash:#D9D9DE;--codebg:#F2F2F4;--codepre:#FFFFFF;--logograd:radial-gradient(circle at 30% 30%,#34D399,#10A37F 60%,#0E8E6E);--topbg:rgba(255,255,255,.85);--panelbg:rgba(255,255,255,.96);--ubub:#E8F5F0;--utxt:#0D0D0D;--nbub:#FFFFFF;--ntxt:#0D0D0D;--chatglow:radial-gradient(900px 520px at 50% -20%,rgba(16,163,127,.07),transparent 62%)}
+[data-theme="aurora"]{--bg:#07070F;--bg2:#0B0B18;--bg3:#10102A;--gold:#7C5CFF;--gold2:#B8A6FF;--txt:#EAE8FF;--dim:#8B87B0;--line:#1D1B3A;--line2:#262445;--ok:#5EE8C5;--no:#E06666;--inp:#0E0E22;--hover:#14122E;--footbg:#0A0A16;--chip:#0E0C26;--panel:linear-gradient(180deg,#14122E,#0B0B18);--goldglow:rgba(124,92,255,.35);--ongold:#0B0B18;--goldsoft:#4A38B8;--denybg:#2A1424;--denyline:#43233A;--oktxt:#052E16;--dash:#1E1C42;--codebg:#12102A;--codepre:#0E0C26;--logograd:radial-gradient(circle at 30% 30%,#B8A6FF,#7C5CFF 60%,#4A38B8);--topbg:rgba(10,10,26,.7);--panelbg:rgba(12,10,30,.92);--ubub:rgba(124,92,255,.16);--utxt:#EAE8FF;--nbub:rgba(20,18,46,.55);--ntxt:#EAE8FF;--chatglow:radial-gradient(900px 520px at 70% -10%,rgba(124,92,255,.16),transparent 62%)}
+/* ---- Theme flavor: each theme gets its own message style ---- */
+.chat{background:var(--chatglow)}
+.m.u .body{background:var(--ubub);color:var(--utxt);border-radius:16px 16px 4px 16px;padding:10px 14px;max-width:78%}
+.m.n .body{background:var(--nbub);color:var(--ntxt);border-radius:4px 16px 16px 16px;padding:11px 15px}
+[data-theme="mint"] .m.u{justify-content:flex-end}
+[data-theme="mint"] .m.u .ic{display:none}
+[data-theme="mint"] .m.u .body{flex:0 1 auto;margin-left:auto}
+[data-theme="mint"] .wrap{max-width:820px}
+[data-theme="mint"] .bar{max-width:820px}
+[data-theme="mint"] .side,.right{background:#FCFCFD}
+[data-theme="mint"] .m.n .body{background:#FFFFFF;border:1px solid #ECECEF;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+[data-theme="mint"] .m.u .body{border:1px solid rgba(16,163,127,.14)}
+[data-theme="mint"] .chat{background:linear-gradient(180deg,#FFFFFF 0%,#F7F7F8 100%),var(--chatglow)}
+[data-theme="dark"] .m.u .body{border:1px solid rgba(201,169,97,.14)}
+[data-theme="dark"] .m.n .body{border:1px solid #1C1C20}
+[data-theme="light"] .m.u .body{border:1px solid rgba(184,134,11,.16)}
+[data-theme="light"] .m.n .body{border:1px solid #E9E7E0;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+[data-theme="aurora"] .side{background:linear-gradient(180deg,rgba(16,16,42,.94),rgba(11,11,24,.97))}
+[data-theme="aurora"] .right{background:linear-gradient(180deg,rgba(13,13,30,.94),rgba(9,9,22,.97))}
+[data-theme="aurora"] .m.u .body{border:1px solid rgba(124,92,255,.3)}
+[data-theme="aurora"] .m.n .body{border:1px solid rgba(124,92,255,.16)}
+[data-theme="aurora"] .top{background:rgba(12,10,28,.72);backdrop-filter:blur(10px)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;height:100vh;display:flex;overflow:hidden}
 /* ===== Left sidebar ===== */
 .side{width:270px;background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0}
 .brand{display:flex;align-items:center;gap:10px;padding:16px 16px;border-bottom:1px solid var(--line)}
-.brand img{width:34px;height:34px;border-radius:9px;object-fit:cover}
+.brand .lg{width:34px;height:34px;flex:none}
+.lg svg{width:100%;height:100%;display:block}
+.lg .lg-a{fill:var(--logograd);border-radius:10px}
+.lg .lg-g{fill:var(--gold)}
+.lg .lg-o{fill:var(--ongold)}
 .brand h1{font-size:15px;letter-spacing:.18em;font-weight:700}
 .brand small{display:block;color:var(--dim);font-size:10px;letter-spacing:.08em}
 .navgrp{padding:12px 0;border-bottom:1px solid var(--line)}
@@ -235,6 +262,7 @@ button.send:disabled{opacity:.4;cursor:not-allowed}
 .bar{max-width:760px;margin:0 auto;width:100%;display:flex;gap:10px;padding-bottom:24px}
 .empty{text-align:center;padding:14vh 0 0;color:var(--dim)}
 .empty .logo{width:64px;height:64px;border-radius:18px;background:var(--logograd);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:var(--ongold);margin:0 auto 18px}
+.empty svg{margin:0 auto 18px;display:block}
 .empty h2{font-size:22px;font-weight:700;margin-bottom:8px}
 .empty p{font-size:14px;line-height:1.7}
 .empty .sug{margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
@@ -258,10 +286,13 @@ button.rtab{width:100%;margin-top:10px;padding:11px;border-radius:11px;border:1p
 button.rtab:hover{border-color:var(--gold);color:var(--gold)}
 /* ===== Theme picker ===== */
 .themes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.theme-btn{padding:9px 8px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--txt);cursor:pointer;font-size:11.5px;transition:.15s;display:flex;align-items:center;gap:7px}
+.theme-btn{padding:9px 8px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--txt);cursor:pointer;font-size:11.5px;transition:.15s;display:flex;align-items:center;gap:8px;text-align:left}
 .theme-btn:hover{border-color:var(--gold);color:var(--gold)}
 .theme-btn.on{background:var(--gold);color:var(--ongold);border-color:var(--gold);font-weight:700}
-.theme-btn .dot{width:12px;height:12px;border-radius:50%;flex:none;border:1px solid var(--line2)}
+.theme-btn .dot{width:13px;height:13px;border-radius:50%;flex:none;border:1px solid var(--line2);box-shadow:0 0 0 3px var(--bg2),0 0 0 4px var(--line2)}
+.theme-btn .tb b{display:block;font-size:12px;line-height:1.2}
+.theme-btn .tb i{display:block;font-size:9.5px;font-style:normal;opacity:.65;line-height:1.3;letter-spacing:.02em}
+.theme-btn.on .tb i{opacity:.85}
 /* ===== Attach + preview ===== */
 .att-preview{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .att-thumb{position:relative;width:58px;height:58px;border-radius:10px;overflow:hidden;border:1px solid var(--line2);background:var(--chip)}
@@ -321,12 +352,13 @@ button.rtab:hover{border-color:var(--gold);color:var(--gold)}
 </head>
 <body>
 <div class="side">
-  <div class="brand"><img src="/nova-logo.png"><div><h1>AURA AI</h1><small>YOUR LOCAL ASSISTANT</small></div></div>
+  <div class="brand"><div class="lg" id="brandlg"></div><div><h1>AURA AI</h1><small>YOUR LOCAL ASSISTANT</small></div></div>
   <button class="newbtn" onclick="newChat()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New chat</button>
   <div class="navgrp">
     <button class="navitem on" id="navchat" onclick="goChat()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat</button>
     <button class="navitem" id="navclients" style="display:none" onclick="showClients()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Clients · activity</button>
     <button class="navitem" onclick="toggleVideoPanel()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>Video Studio</button>
+    <button class="navitem" onclick="toggleImagePanel()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Image Studio</button>
     <button class="navitem" id="adminbtn" style="display:none" onclick="location.href='/admin'"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Admin panel</button>
   </div>
   <div class="hist" id="histbox"><h4>RECENT CHATS</h4><div id="histlist"></div></div>
@@ -371,10 +403,10 @@ button.rtab:hover{border-color:var(--gold);color:var(--gold)}
   </div>
   <div class="rsec"><h5>APPEARANCE</h5>
     <div class="themes" id="themes">
-      <button class="theme-btn" data-th="dark" onclick="setTheme('dark')"><span class="dot" style="background:#C9A961"></span>Dark</button>
-      <button class="theme-btn" data-th="light" onclick="setTheme('light')"><span class="dot" style="background:#B8860B"></span>Light</button>
-      <button class="theme-btn" data-th="mint" onclick="setTheme('mint')"><span class="dot" style="background:#10A37F"></span>Mint</button>
-      <button class="theme-btn" data-th="aurora" onclick="setTheme('aurora')"><span class="dot" style="background:#7C5CFF"></span>Aurora</button>
+      <button class="theme-btn" data-th="dark" onclick="setTheme('dark')"><span class="dot" style="background:#C9A961"></span><span class="tb"><b>Dark</b><i>Midnight gold</i></span></button>
+      <button class="theme-btn" data-th="light" onclick="setTheme('light')"><span class="dot" style="background:#B8860B"></span><span class="tb"><b>Light</b><i>Ivory</i></span></button>
+      <button class="theme-btn" data-th="mint" onclick="setTheme('mint')"><span class="dot" style="background:#10A37F"></span><span class="tb"><b>Mint</b><i>ChatGPT clean</i></span></button>
+      <button class="theme-btn" data-th="aurora" onclick="setTheme('aurora')"><span class="dot" style="background:#7C5CFF"></span><span class="tb"><b>Aurora</b><i>Violet nebula</i></span></button>
     </div>
   </div>
   <div class="rsec"><h5>SELF-LEARNING</h5>
@@ -434,8 +466,39 @@ button.rtab:hover{border-color:var(--gold);color:var(--gold)}
     <div id="vout" style="margin-top:12px"></div>
   </div>
 </div>
+<div id="ipanel" style="display:none;position:fixed;right:24px;top:24px;bottom:24px;width:380px;max-width:92vw;background:var(--bg2);border:1px solid var(--gold);border-radius:16px;z-index:50;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+  <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+    <b style="letter-spacing:.12em">IMAGE STUDIO</b>
+    <a href="javascript:void(0)" onclick="toggleImagePanel()" style="color:var(--dim);font-size:16px;text-decoration:none">✕</a>
+  </div>
+  <div style="padding:16px 18px;overflow-y:auto;flex:1">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="itab" id="itabgen" onclick="iTab('gen')" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--gold);background:var(--gold);color:#111;font-weight:700;cursor:pointer">Create</button>
+      <button class="itab" id="itabedit" onclick="iTab('edit')" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--txt);cursor:pointer">Edit</button>
+    </div>
+    <label style="display:block;font-size:11px;color:var(--dim);margin:8px 0 4px">PROMPT</label>
+    <textarea id="iprompt" rows="3" style="width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px;resize:vertical" placeholder="Describe the image you want..."></textarea>
+    <div id="iurlrow" style="display:none;margin-top:10px">
+      <label style="display:block;font-size:11px;color:var(--dim);margin:8px 0 4px">SOURCE IMAGE URL</label>
+      <input id="iurl" type="url" style="width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px" placeholder="https://...image.jpg">
+      <div style="margin-top:8px"><button onclick="pickGalForImg()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--txt);cursor:pointer">Upload from device / camera</button></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <select id="iratio" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:9px;font-size:12px">
+        <option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option><option value="3:4">3:4</option>
+      </select>
+    </div>
+    <button id="igo" onclick="iRun()" style="width:100%;margin-top:14px;padding:12px;border-radius:12px;border:none;background:var(--gold);color:#111;font-weight:800;cursor:pointer">Create image</button>
+    <div id="imsg" style="margin-top:12px;font-size:12px;color:var(--dim);line-height:1.6"></div>
+    <div id="iout" style="margin-top:12px"></div>
+  </div>
+</div>
+<input type="file" id="imgpick" accept="image/*" capture="environment" style="display:none">
 <script>
 const chat=document.getElementById('chat'),inp=document.getElementById('inp'),btn=document.getElementById('btn');
+function logoSVG(sz){
+  return '<svg viewBox="0 0 48 48" width="'+sz+'" height="'+sz+'" style="display:block"><defs><linearGradient id="lg'+sz+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--gold2)"/><stop offset="1" stop-color="var(--gold)"/></linearGradient></defs><rect class="lg-a" x="2" y="2" width="44" height="44" rx="11" fill="url(#lg'+sz+')"/><path class="lg-o" d="M24 9l11.5 30h-6.4l-1.7-4.7h-6.8L19.1 39h-6.4L24 9zm0 11.6-2.9 7.7h5.8L24 20.6z" fill="var(--ongold)"/><circle class="lg-g" cx="36.5" cy="11.5" r="3" fill="var(--gold2)"/></svg>';
+}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function renderMathIn(el){
   if(window.renderMathInElement){
@@ -457,12 +520,12 @@ function addMsg(role,text,atts){
   const w=document.createElement('div');w.className='wrap';
   const m=document.createElement('div');m.className='m '+role;
   const attsHtml=attMediaHtml(atts);
-  m.innerHTML=(role==='u'?'<div class="ic">YOU</div>':'<div class="ic"><img src="/nova-logo.png" style="width:30px;height:30px;border-radius:8px;object-fit:cover"></div>')+'<div class="body">'+esc(text)+(attsHtml?'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">'+attsHtml+'</div>':'')+'</div>';
+  m.innerHTML=(role==='u'?'<div class="ic">YOU</div>':'<div class="ic">'+logoSVG(30)+'</div>')+'<div class="body">'+esc(text)+(attsHtml?'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">'+attsHtml+'</div>':'')+'</div>';
   w.appendChild(m);chat.appendChild(w);
   if(role==='n'){renderMathIn(w);}
   chat.scrollTop=chat.scrollHeight;return w;
 }
-function addTyping(){const w=document.createElement('div');w.className='wrap';w.innerHTML='<div class="m n"><div class="ic"><img src="/nova-logo.png" style="width:30px;height:30px;border-radius:8px;object-fit:cover"></div><div class="body"><span class="typing"><span></span><span></span><span></span></span></div></div>';chat.appendChild(w);chat.scrollTop=chat.scrollHeight;return w;}
+function addTyping(){const w=document.createElement('div');w.className='wrap';w.innerHTML='<div class="m n"><div class="ic">'+logoSVG(30)+'</div><div class="body"><span class="typing"><span></span><span></span><span></span></span></div></div>';chat.appendChild(w);chat.scrollTop=chat.scrollHeight;return w;}
 /* ---- Attach files ---- */
 let pendingFiles=[];
 function toggleAttMenu(ev){ev&&ev.stopPropagation();document.getElementById('attmenu').classList.toggle('show');}
@@ -608,11 +671,11 @@ async function showClients(){
   document.getElementById('curtitle').textContent='Clients · activity';
   chat.innerHTML='';
   const w=document.createElement('div');w.className='wrap';
-  w.innerHTML='<div class="empty"><img src="/nova-logo.png" style="width:64px;height:64px;border-radius:18px;object-fit:cover;margin:0 auto 18px;display:block"><h2>Client activity</h2><p>Loading who did what…</p></div>';
+  w.innerHTML='<div class="empty">'+logoSVG(64)+'<h2>Client activity</h2><p>Loading who did what…</p></div>';
   chat.appendChild(w);chat.scrollTop=chat.scrollHeight;
   try{
     const r=await fetch('/api/activity');const d=await r.json();
-    let html='<div class="wrap"><div class="empty" style="padding-top:6vh"><img src="/nova-logo.png" style="width:64px;height:64px;border-radius:18px;object-fit:cover;margin:0 auto 18px;display:block"><h2>Clients · who did what</h2></div>';
+    let html='<div class="wrap"><div class="empty" style="padding-top:6vh">'+logoSVG(64)+'<h2>Clients · who did what</h2></div>';
     if(!d.clients.length)html+='<p style="text-align:center;color:var(--dim);font-size:13px">No clients yet.</p>';
     d.clients.forEach(c=>{
       html+=`<div style="border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px">
@@ -634,7 +697,7 @@ async function showClients(){
 }
 function emptyHTML(){
   const d=document.createElement('div');d.className='wrap';
-  d.innerHTML=`<div class="empty"><img src="/nova-logo.png" style="width:64px;height:64px;border-radius:18px;object-fit:cover;margin:0 auto 18px;display:block"><h2>How can I help you?</h2>
+  d.innerHTML=`<div class="empty">${logoSVG(64)}<h2>How can I help you?</h2>
   <p>I can manage files, remember notes, browse the web, open apps, run scheduled jobs and create videos.<br>Risky actions always ask for your approval first.</p>
   <div class="sug"><button onclick="q('List my files in the workspace')">List my files</button><button onclick="q('Save a note: remember this')">Save a note</button><button onclick="q('Open Wikipedia and summarize the front page')">Browse the web</button><button onclick="q('What can you do?')">What can you do?</button></div></div>`;
   return d;
@@ -685,6 +748,7 @@ async function submitSurvey(){
 }
 inp.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
 btn.addEventListener('click',send);
+document.getElementById('brandlg').innerHTML=logoSVG(34);
 document.getElementById('cam').addEventListener('change',e=>onFilesChosen(e.target));
 document.getElementById('gal').addEventListener('change',e=>onFilesChosen(e.target));
 document.getElementById('fil').addEventListener('change',e=>onFilesChosen(e.target));
@@ -735,6 +799,82 @@ async function vRun(){
     if(d.ok&&d.video_url){
       m.textContent='Done. Video is ready:';
       out.innerHTML='<video src="'+d.video_url+'" controls style="width:100%;border-radius:12px;background:#000"></video>';
+    }else{
+      m.textContent='Error: '+(d.error||'unknown');
+    }
+  }catch(e){m.textContent='Network error: '+e;}
+}
+
+/* ---- Image Studio ---- */
+let iMode='gen';
+function toggleImagePanel(){
+  const p=document.getElementById('ipanel');
+  const open=(p.style.display==='flex');
+  p.style.display=open?'none':'flex';
+  if(!open)iStatus();
+}
+function iTab(mode){
+  iMode=mode;
+  document.getElementById('itabgen').style.background=mode==='gen'?'var(--gold)':'transparent';
+  document.getElementById('itabgen').style.color=mode==='gen'?'#111':'var(--txt)';
+  document.getElementById('itabedit').style.background=mode==='edit'?'var(--gold)':'transparent';
+  document.getElementById('itabedit').style.color=mode==='edit'?'#111':'var(--txt)';
+  document.getElementById('iurlrow').style.display=mode==='edit'?'block':'none';
+  document.getElementById('igo').textContent=mode==='gen'?'Create image':'Edit image';
+  document.getElementById('iratio').style.display=mode==='edit'?'none':'block';
+}
+async function iStatus(){
+  try{
+    const r=await fetch('/api/image/status');const d=await r.json();
+    const m=document.getElementById('imsg');
+    if(d.ok&&d.enabled){m.textContent='Ready. Model: '+d.model;}
+    else{m.textContent='Image Studio is not configured yet (no Gemini key). The panel will unlock once the owner adds one.';}
+  }catch(e){}
+}
+function pickGalForImg(){
+  const el=document.getElementById('imgpick');
+  el.onchange=e=>{
+    const f=e.target.files&&e.target.files[0];
+    if(!f)return;
+    const url=URL.createObjectURL(f);
+    document.getElementById('iurl').value=url;
+    document.getElementById('iurl').dataset.local='1';
+    const prev=document.getElementById('iout');
+    prev.innerHTML='<img src="'+url+'" style="width:100%;border-radius:12px;border:1px solid var(--line)" alt="Selected image">';
+  };
+  el.click();
+}
+async function iRun(){
+  const m=document.getElementById('imsg'),out=document.getElementById('iout');
+  const prompt=document.getElementById('iprompt').value.trim();
+  const ratio=document.getElementById('iratio').value;
+  const url=document.getElementById('iurl').value.trim();
+  if(!prompt){m.textContent='Please describe the image first.';return;}
+  m.textContent='Working — generating image (can take ~30s)...';out.innerHTML='';
+  let imageUrl=url;
+  if(iMode==='edit'&&url&&url.startsWith('blob:')){
+    m.textContent='Uploading your image...';
+    try{
+      const blob=await fetch(url).then(r=>r.blob());
+      const fd=new FormData();fd.append('files',blob,'source.jpg');
+      const up=await fetch('/api/upload',{method:'POST',body:fd});
+      const ud=await up.json();
+      if(ud.ok&&ud.files&&ud.files[0]){imageUrl=ud.files[0].url;}
+      else{m.textContent='Upload failed: '+(ud.error||'unknown');return;}
+    }catch(e){m.textContent='Upload error: '+e;return;}
+  }
+  try{
+    let d;
+    if(iMode==='gen'){
+      const r=await fetch('/api/image/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,ratio})});
+      d=await r.json();
+    }else{
+      const r=await fetch('/api/image/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,image_url:imageUrl})});
+      d=await r.json();
+    }
+    if(d.ok&&d.image_data){
+      m.textContent='Done. Image is ready (right-click to save):';
+      out.innerHTML='<img src="'+d.image_data+'" style="width:100%;border-radius:12px;border:1px solid var(--line)" alt="Generated image">';
     }else{
       m.textContent='Error: '+(d.error||'unknown');
     }
@@ -1477,6 +1617,39 @@ def video_edit():
         video_url=data.get("video_url", ""),
     )
     _log("video", f"edit prompt={data.get('prompt','')[:200]}")
+    return jsonify(result)
+
+
+@app.route("/api/image/status")
+@login_required
+def image_status():
+    from ..tools import image as image_tool
+    return jsonify({"ok": True, **image_tool.status()})
+
+
+@app.route("/api/image/generate", methods=["POST"])
+@login_required
+def image_generate():
+    data = request.json or {}
+    from ..tools import image as image_tool
+    result = image_tool.generate(
+        prompt=data.get("prompt", ""),
+        ratio=data.get("ratio", "1:1"),
+    )
+    _log("image", f"generate prompt={data.get('prompt','')[:200]}")
+    return jsonify(result)
+
+
+@app.route("/api/image/edit", methods=["POST"])
+@login_required
+def image_edit():
+    data = request.json or {}
+    from ..tools import image as image_tool
+    result = image_tool.edit(
+        prompt=data.get("prompt", ""),
+        image_url=data.get("image_url", ""),
+    )
+    _log("image", f"edit prompt={data.get('prompt','')[:200]}")
     return jsonify(result)
 
 

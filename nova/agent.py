@@ -22,13 +22,14 @@ share his details naturally:
 - Email: arshadnaib20@gmail.com
 
 If someone asks what model or API you run on, answer honestly and precisely: you are powered
-by Groq's free API (api.groq.com) running open-weight models such as Llama-3.1-8B-instant,
-Llama-3.3-70B or GPT-OSS, with automatic fallback between models when one is rate-limited.
+by a chain of free AI APIs with automatic fallback — Groq (open-weight models such as
+Llama-3.3-70B, Llama-3.1-8B, Gemma, Mixtral, GPT-OSS), Google Gemini, and optionally
+DeepSeek. If one brain is rate-limited or down, the next one answers automatically.
 You are NOT OpenAI GPT-4 and NOT Anthropic Claude. Your creator built you as a custom Python
 agent with its own tools (files, notes, browser, apps, scheduler, video studio), a SQLite memory
 and audit log, an approval gate, and a web UI — hosted on PythonAnywhere. Never claim to be
 GPT-4, Claude, or any other model. Never invent your model or provider; if unsure, say you run
-on Groq/Llama.
+on a Groq/Gemini/DeepSeek chain.
 
 Rules:
 - Files: only inside the workspace. Prefer relative paths.
@@ -46,6 +47,14 @@ Math and formulas (book-style answers):
   3. Define every symbol the first time you use it (e.g. "x = unknown value, n = count").
   4. End with a worked example or a one-line takeaway. Avoid jargon; if you must use a term, explain it simply.
 - Never answer with a bare formula and nothing else. Book-style = readable, stepped, defined, friendly.
+
+Conversation memory rules (very important):
+- I give you the recent chat history only so you can follow up when the user refers back
+  ("explain that more", "and the second one?", "what about that example?").
+- When the user asks a NEW question about a different topic, answer it completely on its
+  own. Do NOT mix, blend, or merge the new question with older topics from the history.
+- Never combine two different questions into one answer. Answer exactly what was asked
+  last; use history only when the new message clearly points back to it.
 """
 
 
@@ -63,6 +72,31 @@ LEARN_SCHEMA = {
         },
     },
 }
+
+
+_FOLLOWUP_HINTS = (
+    "explain", "more", "again", "earlier", "previous", "above",
+    "what about", "how about", "and the", "or the", "tell me more",
+    "instead", "another one", "another option", "the first", "the second",
+    "the last", "the next", "the other", "like that", "similar",
+    "difference", "compare", "means", "mean",
+    # Bangla follow-up words (students commonly chat in Bangla)
+    "আবার", "ওটা", "এটা", "সেটা", "আগের", "উপরে", "যেটা",
+    "আরেকটা", "আরেকটি", "বলো", "বলুন", "অর্থাৎ",
+    # Chinese follow-up words
+    "那个", "这个", "刚才", "之前", "上面", "然后", "再说",
+)
+
+
+def _is_followup(text: str) -> bool:
+    """True when a message clearly refers back to the previous topic."""
+    t = text.strip().lower()
+    if not t:
+        return False
+    for w in _FOLLOWUP_HINTS:
+        if w in t:
+            return True
+    return False
 
 
 def _tool_schemas() -> list:
@@ -281,6 +315,13 @@ class NovaAgent:
                 self.alt_client = OpenAI(api_key=config.ALT_API_KEY, base_url=config.ALT_BASE_URL)
             except Exception as e:
                 print(f"[Nova] Could not init alt provider client: {e}")
+        self.alt2_client = None
+        if config.ALT2_API_KEY:
+            try:
+                from openai import OpenAI
+                self.alt2_client = OpenAI(api_key=config.ALT2_API_KEY, base_url=config.ALT2_BASE_URL)
+            except Exception as e:
+                print(f"[Nova] Could not init alt2 provider client: {e}")
         db.init_db()
 
     @property
@@ -296,8 +337,18 @@ class NovaAgent:
                 "then restart me."
             )
 
-        db.save_message("user", user_text)
-        history = db.load_messages(history_limit)
+        db.save_message("user", user_text, user_id=user_id)
+        history = db.load_messages(history_limit, user_id=user_id)
+
+        # Smart context: only carry history when the new question actually refers
+        # back to it (follow-up words). A brand-new unrelated topic starts clean,
+        # so old topics never bleed into the new answer.
+        if history and not _is_followup(user_text):
+            history = [{"role": "user", "content": user_text}]
+        else:
+            # ensure the current user message is always present
+            if not history or history[-1].get("content") != user_text:
+                history = history + [{"role": "user", "content": user_text}]
 
         # Self-learning: inject what Aura has learned about THIS user.
         system = SYSTEM_PROMPT
@@ -335,7 +386,7 @@ class NovaAgent:
 
         messages = [{"role": "system", "content": system}] + history
 
-        # Build the provider/model chain: primary -> fallback models -> alt provider.
+        # Build the provider/model chain: primary -> fallback models -> alt provider(s).
         chain = []
         if self.client:
             chain.append((config.MODEL, self.client))
@@ -344,10 +395,13 @@ class NovaAgent:
                     chain.append((m, self.client))
         if self.alt_client:
             chain.append((config.ALT_MODEL, self.alt_client))
+        if self.alt2_client:
+            chain.append((config.ALT2_MODEL, self.alt2_client))
 
         def _brain_call():
-            """Try each model in the chain; only rate-limit/quota/transient errors
-            fall through to the next one. Returns (resp, model_used) or raises."""
+            """Try every brain in the chain. Any error (rate limit, 404, timeout,
+            quota) falls through to the next one, so a dead model never blocks
+            the chat. Raises only when ALL brains are unavailable."""
             errs = []
             for model, client in chain:
                 try:
@@ -361,21 +415,13 @@ class NovaAgent:
                     return resp, model
                 except Exception as e:
                     errs.append(f"{model}: {e}")
-                    msg_l = str(e).lower()
-                    status = str(getattr(e, "status_code", ""))
-                    transient = ("429" in str(e) or "rate_limit" in msg_l or "quota" in msg_l
-                                 or "try again" in msg_l or "overloaded" in msg_l
-                                 or "temporar" in msg_l or status == "503")
-                    if not transient:
-                        # Hard error on the primary model — surface it immediately.
-                        raise
             raise RuntimeError("All brains unavailable: " + " | ".join(errs))
 
         for _ in range(8):  # cap tool-call rounds
             try:
                 resp, _model_used = _brain_call()
             except Exception as e:
-                db.save_message("assistant", f"(error) {e}")
+                db.save_message("assistant", f"(error) {e}", user_id=user_id)
                 return f"Brain call failed: {e}"
 
             msg = resp.choices[0].message
@@ -402,7 +448,7 @@ class NovaAgent:
 
             text = (msg.content or "").strip()
             if text:
-                db.save_message("assistant", text)
+                db.save_message("assistant", text, user_id=user_id)
             return text or "(no reply)"
 
         return "(stopped after too many tool rounds)"
