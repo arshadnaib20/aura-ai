@@ -161,7 +161,7 @@ PAGE = """<!doctype html>
 <style>
 :root,[data-theme="dark"]{--bg:#050505;--bg2:#0A0A0C;--bg3:#0C0C10;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--line2:#26262C;--ok:#5EC8A5;--no:#E06666;--inp:#0C0C0E;--hover:#101014;--footbg:#08080A;--chip:#0E0E10;--panel:linear-gradient(180deg,#12100A,#0A0A0C);--goldglow:rgba(201,169,97,.35);--ongold:#111;--goldsoft:#8a733a;--denybg:#2A2323;--denyline:#3A2A2A;--oktxt:#04170F;--dash:#17171B;--codebg:#141416;--codepre:#0E0E10;--logograd:radial-gradient(circle at 30% 30%,#E5CD8E,#C9A961 60%,#8a733a);--topbg:rgba(8,8,10,.7);--panelbg:rgba(10,10,12,.9)}
 [data-theme="light"]{--bg:#F6F6F8;--bg2:#FFFFFF;--bg3:#EFEFF2;--gold:#B8860B;--gold2:#8F6B1A;--txt:#1A1A1F;--dim:#6B6B76;--line:#E3E3E8;--line2:#D5D5DB;--ok:#15803D;--no:#B91C1C;--inp:#FFFFFF;--hover:#EFEFF2;--footbg:#F1F1F4;--chip:#FFFFFF;--panel:linear-gradient(180deg,#FFFFFF,#F6F6F8);--goldglow:rgba(184,134,11,.3);--ongold:#FFFFFF;--goldsoft:#B8860B;--denybg:#FBE9E7;--denyline:#F2C6C2;--oktxt:#052E16;--dash:#DADAE0;--codebg:#F2F2F4;--codepre:#FFFFFF;--logograd:radial-gradient(circle at 30% 30%,#D4AF37,#B8860B 60%,#8F6B1A);--topbg:rgba(255,255,255,.8);--panelbg:rgba(255,255,255,.94)}
-[data-theme="chatgpt"]{--bg:#FFFFFF;--bg2:#F7F7F8;--bg3:#ECECEF;--gold:#10A37F;--gold2:#0E8E6E;--txt:#0D0D0D;--dim:#6E6E73;--line:#E5E5E8;--line2:#D6D6DB;--ok:#0E8E6E;--no:#D9534F;--inp:#FFFFFF;--hover:#ECECEF;--footbg:#F7F7F8;--chip:#FFFFFF;--panel:linear-gradient(180deg,#FFFFFF,#F7F7F8);--goldglow:rgba(16,163,127,.3);--ongold:#FFFFFF;--goldsoft:#0E8E6E;--denybg:#FBE9E7;--denyline:#F2C6C2;--oktxt:#052E16;--dash:#D9D9DE;--codebg:#F2F2F4;--codepre:#FFFFFF;--logograd:radial-gradient(circle at 30% 30%,#34D399,#10A37F 60%,#0E8E6E);--topbg:rgba(255,255,255,.85);--panelbg:rgba(255,255,255,.96)}
+[data-theme="mint"]{--bg:#FFFFFF;--bg2:#F7F7F8;--bg3:#ECECEF;--gold:#10A37F;--gold2:#0E8E6E;--txt:#0D0D0D;--dim:#6E6E73;--line:#E5E5E8;--line2:#D6D6DB;--ok:#0E8E6E;--no:#D9534F;--inp:#FFFFFF;--hover:#ECECEF;--footbg:#F7F7F8;--chip:#FFFFFF;--panel:linear-gradient(180deg,#FFFFFF,#F7F7F8);--goldglow:rgba(16,163,127,.3);--ongold:#FFFFFF;--goldsoft:#0E8E6E;--denybg:#FBE9E7;--denyline:#F2C6C2;--oktxt:#052E16;--dash:#D9D9DE;--codebg:#F2F2F4;--codepre:#FFFFFF;--logograd:radial-gradient(circle at 30% 30%,#34D399,#10A37F 60%,#0E8E6E);--topbg:rgba(255,255,255,.85);--panelbg:rgba(255,255,255,.96)}
 [data-theme="aurora"]{--bg:#07070F;--bg2:#0B0B18;--bg3:#10102A;--gold:#7C5CFF;--gold2:#B8A6FF;--txt:#EAE8FF;--dim:#8B87B0;--line:#1D1B3A;--line2:#262445;--ok:#5EE8C5;--no:#E06666;--inp:#0E0E22;--hover:#14122E;--footbg:#0A0A16;--chip:#0E0C26;--panel:linear-gradient(180deg,#14122E,#0B0B18);--goldglow:rgba(124,92,255,.35);--ongold:#0B0B18;--goldsoft:#4A38B8;--denybg:#2A1424;--denyline:#43233A;--oktxt:#052E16;--dash:#1E1C42;--codebg:#12102A;--codepre:#0E0C26;--logograd:radial-gradient(circle at 30% 30%,#B8A6FF,#7C5CFF 60%,#4A38B8);--topbg:rgba(10,10,26,.7);--panelbg:rgba(12,10,30,.92)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;height:100vh;display:flex;overflow:hidden}
@@ -373,7 +373,7 @@ button.rtab:hover{border-color:var(--gold);color:var(--gold)}
     <div class="themes" id="themes">
       <button class="theme-btn" data-th="dark" onclick="setTheme('dark')"><span class="dot" style="background:#C9A961"></span>Dark</button>
       <button class="theme-btn" data-th="light" onclick="setTheme('light')"><span class="dot" style="background:#B8860B"></span>Light</button>
-      <button class="theme-btn" data-th="chatgpt" onclick="setTheme('chatgpt')"><span class="dot" style="background:#10A37F"></span>ChatGPT</button>
+      <button class="theme-btn" data-th="mint" onclick="setTheme('mint')"><span class="dot" style="background:#10A37F"></span>Mint</button>
       <button class="theme-btn" data-th="aurora" onclick="setTheme('aurora')"><span class="dot" style="background:#7C5CFF"></span>Aurora</button>
     </div>
   </div>
@@ -522,10 +522,10 @@ async function send(){
 }
 /* ---- Theme ---- */
 function applyTheme(t){
+  if(t==='chatgpt')t='mint';
   document.documentElement.setAttribute('data-theme',t||'dark');
   document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('on',b.dataset.th===t));
-  try{localStorage.setItem('aura_theme',t||'dark');}catch(e){}
-}
+  try{localStorage.setItem('aura_theme',t||'dark');}catch(e){}}
 async function setTheme(t){
   applyTheme(t);
   try{await fetch('/api/theme',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:t})});}catch(e){}
@@ -653,7 +653,7 @@ async function me(){const r=await fetch('/api/me');const d=await r.json();
   document.getElementById('god').checked=!!d.god;
   document.title='Aura AI — '+d.name;
   localStorage.setItem('aura_user',d.name);
-  applyTheme(d.theme||localStorage.getItem('aura_theme')||'dark');
+  applyTheme(d.theme==='chatgpt'?'mint':(d.theme||localStorage.getItem('aura_theme')||'dark'));
   if(d.owner){document.getElementById('adminbtn').style.display='block';document.getElementById('navclients').style.display='block';}
   renderHist();loadLearned();
 }
@@ -1335,7 +1335,7 @@ def me():
         "level": config.PERMISSION_LEVEL,
         "god": config.GOD_MODE,
         "owner": is_owner(),
-        "theme": db.get_theme(session.get("uid", 0)),
+        "theme": "mint" if db.get_theme(session.get("uid", 0)) == "chatgpt" else db.get_theme(session.get("uid", 0)),
     })
 
 
@@ -1343,7 +1343,9 @@ def me():
 @login_required
 def theme_api():
     t = (request.json or {}).get("theme") or "dark"
-    if t not in ("dark", "light", "chatgpt", "aurora"):
+    if t == "chatgpt":
+        t = "mint"  # legacy name → Mint
+    if t not in ("dark", "light", "mint", "aurora"):
         t = "dark"
     db.set_theme(session.get("uid"), t)
     _log("theme", t)

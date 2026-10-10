@@ -22,11 +22,13 @@ share his details naturally:
 - Email: arshadnaib20@gmail.com
 
 If someone asks what model or API you run on, answer honestly and precisely: you are powered
-by Groq's free API (api.groq.com) running the Llama-3.1-8B-instant model. You are NOT OpenAI
-GPT-4 and NOT Anthropic Claude. Your creator built you as a custom Python agent with its own
-tools (files, notes, browser, apps, scheduler, video studio), a SQLite memory and audit log,
-an approval gate, and a web UI — hosted on PythonAnywhere. Never claim to be GPT-4, Claude, or
-any other model. Never invent your model or provider; if unsure, say you run on Groq/Llama.
+by Groq's free API (api.groq.com) running open-weight models such as Llama-3.1-8B-instant,
+Llama-3.3-70B or GPT-OSS, with automatic fallback between models when one is rate-limited.
+You are NOT OpenAI GPT-4 and NOT Anthropic Claude. Your creator built you as a custom Python
+agent with its own tools (files, notes, browser, apps, scheduler, video studio), a SQLite memory
+and audit log, an approval gate, and a web UI — hosted on PythonAnywhere. Never claim to be
+GPT-4, Claude, or any other model. Never invent your model or provider; if unsure, say you run
+on Groq/Llama.
 
 Rules:
 - Files: only inside the workspace. Prefer relative paths.
@@ -261,6 +263,7 @@ def _dispatch(name: str, args: dict, user_id=None) -> str:
 class NovaAgent:
     def __init__(self):
         self.client = None
+        self.alt_client = None
         if config.API_KEY:
             try:
                 # remove sandbox-injected proxies that can block the brain API
@@ -272,6 +275,12 @@ class NovaAgent:
                 self.client = OpenAI(api_key=config.API_KEY, base_url=config.BASE_URL)
             except Exception as e:
                 print(f"[Nova] Could not init OpenAI client: {e}")
+        if config.ALT_API_KEY:
+            try:
+                from openai import OpenAI
+                self.alt_client = OpenAI(api_key=config.ALT_API_KEY, base_url=config.ALT_BASE_URL)
+            except Exception as e:
+                print(f"[Nova] Could not init alt provider client: {e}")
         db.init_db()
 
     @property
@@ -326,15 +335,45 @@ class NovaAgent:
 
         messages = [{"role": "system", "content": system}] + history
 
+        # Build the provider/model chain: primary -> fallback models -> alt provider.
+        chain = []
+        if self.client:
+            chain.append((config.MODEL, self.client))
+            for m in config.FALLBACK_MODELS:
+                if m != config.MODEL:
+                    chain.append((m, self.client))
+        if self.alt_client:
+            chain.append((config.ALT_MODEL, self.alt_client))
+
+        def _brain_call():
+            """Try each model in the chain; only rate-limit/quota/transient errors
+            fall through to the next one. Returns (resp, model_used) or raises."""
+            errs = []
+            for model, client in chain:
+                try:
+                    resp = client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        tools=_tool_schemas(),
+                        tool_choice="auto",
+                        temperature=0.4,
+                    )
+                    return resp, model
+                except Exception as e:
+                    errs.append(f"{model}: {e}")
+                    msg_l = str(e).lower()
+                    status = str(getattr(e, "status_code", ""))
+                    transient = ("429" in str(e) or "rate_limit" in msg_l or "quota" in msg_l
+                                 or "try again" in msg_l or "overloaded" in msg_l
+                                 or "temporar" in msg_l or status == "503")
+                    if not transient:
+                        # Hard error on the primary model — surface it immediately.
+                        raise
+            raise RuntimeError("All brains unavailable: " + " | ".join(errs))
+
         for _ in range(8):  # cap tool-call rounds
             try:
-                resp = self.client.chat.completions.create(
-                    model=config.MODEL,
-                    messages=messages,
-                    tools=_tool_schemas(),
-                    tool_choice="auto",
-                    temperature=0.4,
-                )
+                resp, _model_used = _brain_call()
             except Exception as e:
                 db.save_message("assistant", f"(error) {e}")
                 return f"Brain call failed: {e}"

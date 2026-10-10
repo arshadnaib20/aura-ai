@@ -1,0 +1,7 @@
+﻿git.exe : Everything up-to-date
+At line:1 char:171
++ ... tp://127.0.0.1:17891"; & git push origin main 2> push-err.txt; Write- ...
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Everything up-to-date:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

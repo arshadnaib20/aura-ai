@@ -1,0 +1,12 @@
+login status 200 body {"error":"Wrong email or password.","ok":false}
+
+upgrade status 200 body <!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aura AI</title>
+<link rel="icon" href="/nova-logo.png">
+<style>
+:root{--bg:#050505;--gold:#C9A961;--gold2:#E5CD8E;--txt:#EDEAE2;--dim:#8A8678;--line:#1E1E22;--no:#E06666}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at

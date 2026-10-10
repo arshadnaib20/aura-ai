@@ -19,6 +19,19 @@ API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 MODEL = os.getenv("MODEL", "llama-3.1-8b-instant")
 BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 
+# Fallback models tried in order when the primary brain is rate-limited (429)
+# or fails. Different models have separate quotas, so chats keep working.
+FALLBACK_MODELS = [
+    m.strip() for m in os.getenv(
+        "FALLBACK_MODELS",
+        "llama-3.1-8b-instant,llama-3.3-70b-versatile,gemma2-9b-it,mixtral-8x7b-32768",
+    ).split(",") if m.strip()
+]
+# Optional second provider (any OpenAI-compatible API). Leave empty to skip.
+ALT_API_KEY = os.getenv("ALT_API_KEY", "").strip()
+ALT_BASE_URL = os.getenv("ALT_BASE_URL", "").strip() or "https://api.deepseek.com/v1"
+ALT_MODEL = os.getenv("ALT_MODEL", "").strip() or "deepseek-chat"
+
 # ---- Workspace sandbox ---------------------------------------------------
 WORKSPACE = (PROJECT_ROOT / os.getenv("WORKSPACE", "./nova_workspace")).resolve()
 WORKSPACE.mkdir(parents=True, exist_ok=True)
