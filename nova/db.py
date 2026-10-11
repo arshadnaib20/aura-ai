@@ -342,12 +342,38 @@ def add_note(content: str):
 
 
 # ---- learned facts (self-learning memory) --------------------------------
-def add_learned_fact(user_id, fact: str, source: str = "user") -> None:
+def _normalize(text: str) -> str:
+    return "".join(ch for ch in text.lower() if ch.isalnum() or ch.isspace()).strip()
+
+
+def add_learned_fact(user_id, fact: str, source: str = "user") -> str:
+    """Save a fact, skipping near-duplicates (data-quality: no redundant memory)."""
+    fact = (fact or "").strip()[:500]
+    if not fact:
+        return "Empty fact ignored."
+    norm = _normalize(fact)
+    if not norm:
+        return "Empty fact ignored."
     with cursor() as c:
+        rows = c.execute(
+            "SELECT id, fact FROM learned_facts WHERE user_id=?", (user_id,)
+        ).fetchall()
+        for r in rows:
+            old = _normalize(r["fact"])
+            if not old:
+                continue
+            # exact or strong overlap -> update instead of duplicating
+            if norm == old or norm in old or old in norm:
+                c.execute(
+                    "UPDATE learned_facts SET fact=?, source=?, ts=? WHERE id=?",
+                    (fact, source, time.time(), r["id"]),
+                )
+                return "Updated existing memory (avoided duplicate)."
         c.execute(
             "INSERT INTO learned_facts (user_id, fact, source, ts) VALUES (?,?,?,?)",
             (user_id, fact, source, time.time()),
         )
+    return "Learned and saved to memory."
 
 
 def list_learned_facts(user_id, limit: int = 40) -> list[dict]:

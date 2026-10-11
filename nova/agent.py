@@ -1,5 +1,8 @@
 """Nova agent loop — Groq brain + tool dispatch + audit + approval gate."""
+import ast
 import json
+import math
+import operator
 
 from . import approval, config, db
 from .tools import apps, browser, files, notes, scheduler
@@ -55,6 +58,11 @@ Conversation memory rules (very important):
   own. Do NOT mix, blend, or merge the new question with older topics from the history.
 - Never combine two different questions into one answer. Answer exactly what was asked
   last; use history only when the new message clearly points back to it.
+
+Examples of good answers (follow these formats):
+- Math: "Q: What is 48 plus 76? A: 124" — show the steps, then the exact result.
+- Translation: "Q: Translate 'sea otter' to French. A: loutre de mer".
+- Definition: give a clear one-line definition, then one example sentence.
 """
 
 
@@ -97,6 +105,161 @@ def _is_followup(text: str) -> bool:
         if w in t:
             return True
     return False
+
+
+# ---- few-shot demonstrations (GPT-3 paper: in-context examples beat bare prompts) ----
+_FEWSHOT_EXAMPLES = [
+    (
+        "arithmetic",
+        [
+            "User: What is 48 plus 76?\nAssistant: 48 + 76 = 124.",
+            "User: What is 34 minus 53?\nAssistant: 34 - 53 = -19.",
+            "User: What is 24 times 42?\nAssistant: 24 × 42 = 1008.",
+            "User: What is 6+(4*8)?\nAssistant: 6 + (4 × 8) = 6 + 32 = 38.",
+        ],
+    ),
+    (
+        "translation",
+        [
+            "User: Translate 'sea otter' to French.\nAssistant: loutre de mer.",
+            "User: Translate 'hello' to Bangla.\nAssistant: হ্যালো.",
+            "User: How do you say 'thank you' in Chinese?\nAssistant: 谢谢 (xièxie).",
+        ],
+    ),
+    (
+        "definition",
+        [
+            "User: What does 'metamorphosis' mean?\nAssistant: Metamorphosis is a change of form or nature, e.g. a caterpillar becomes a butterfly.",
+            "User: Define 'photosynthesis'.\nAssistant: Photosynthesis is how plants make food from sunlight, water and CO2.",
+        ],
+    ),
+    (
+        "code",
+        [
+            "User: Write Python to add two numbers.\nAssistant: ```python\na = 5\nb = 3\nprint(a + b)\n```",
+            "User: Sort a list in JavaScript.\nAssistant: ```js\narr.sort((a,b)=>a-b);\n```",
+        ],
+    ),
+]
+
+_CALC_BIN_OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_CALC_FUNCS = {
+    "sqrt": math.sqrt,
+    "pow": math.pow,
+    "abs": abs,
+    "round": round,
+    "min": min,
+    "max": max,
+    "sin": math.sin,
+    "cos": math.cos,
+    "tan": math.tan,
+    "log": math.log,
+    "exp": math.exp,
+    "floor": math.floor,
+    "ceil": math.ceil,
+    "pi": math.pi,
+    "e": math.e,
+}
+
+
+def _calc_eval(node):
+    """Safe AST evaluator: only numbers, math ops, whitelisted functions."""
+    if isinstance(node, ast.Expression):
+        return _calc_eval(node.body)
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float)):
+            return node.value
+        raise ValueError("non-number constant")
+    if isinstance(node, ast.BinOp):
+        fn = _CALC_BIN_OPS.get(type(node.op))
+        if fn is None:
+            raise ValueError("unsupported operator")
+        return fn(_calc_eval(node.left), _calc_eval(node.right))
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, (ast.UAdd, ast.USub)):
+            v = _calc_eval(node.operand)
+            return v if isinstance(node.op, ast.UAdd) else -v
+        raise ValueError("unsupported unary op")
+    if isinstance(node, ast.Call):
+        fname = node.func.id if isinstance(node.func, ast.Name) else ""
+        fn = _CALC_FUNCS.get(fname)
+        if fn is None:
+            raise ValueError("unsupported function")
+        args = [_calc_eval(a) for a in node.args]
+        return fn(*args)
+    if isinstance(node, ast.Name):
+        if node.id in ("pi", "e"):
+            return _CALC_FUNCS[node.id]
+        raise ValueError("unknown name")
+    raise ValueError("unsupported expression")
+
+
+def _safe_calc(expression: str):
+    """Exact math evaluation via AST (never eval()). Returns str result or error."""
+    expr = expression.strip()
+    if not expr:
+        return "Empty expression."
+    # support "25% of 200" phrasing
+    import re
+    m = re.match(r"^([\d\s\.,]+)\s*%?\s*of\s+([\d\s\.,]+)$", expr, re.I)
+    if m:
+        expr = f"{m.group(1).strip().replace(',', '')}*{m.group(2).strip().replace(',', '')}/100"
+    expr = expr.replace("×", "*").replace("÷", "/").replace("^", "**")
+    # strip leading question words first so "of" detection works
+    expr = _re.sub(r"^\s*(what is|what's|whats|compute|calculate|solve|find)\s*", "", expr, flags=_re.I)
+    # word phrases: "48 plus 76", "34 minus 53", "24 times 42", "100 divided by 5"
+    expr = _re.sub(r"\bplus\b", "+", expr, flags=_re.I)
+    expr = _re.sub(r"\bminus\b", "-", expr, flags=_re.I)
+    expr = _re.sub(r"\btimes\b|\bmultiplied by\b", "*", expr, flags=_re.I)
+    expr = _re.sub(r"\bdivided by\b|\bover\b", "/", expr, flags=_re.I)
+    # "25% of 200" / "25 percent of 200" -> 25*200/100
+    expr = _re.sub(r"([\d.]+)\s*(?:%|percent)\s*of\s+([\d.]+)", r"(\1*\2/100)", expr, flags=_re.I)
+    expr = expr.replace("of", "*")
+    # "48 plus 76" -> "48 + 76" (spaces preserved for parse)
+    try:
+        tree = ast.parse(expr, mode="eval")
+        val = _calc_eval(tree)
+        if isinstance(val, float) and val.is_integer():
+            val = int(val)
+        return str(val)
+    except Exception as e:
+        return f"Could not evaluate: {e}"
+
+
+import re as _re
+
+
+def _pick_demos(text: str) -> list:
+    """Pick 1-2 few-shot examples matching the question's task type."""
+    t = text.strip().lower()
+    hits = []
+    # arithmetic: digits + operators, or math words
+    if (
+        _re.search(r"\d+\s*[\+\-\*x×÷/^]\s*\d+", t)
+        or _re.search(r"(add|plus|sum|minus|subtract|times|multiply|divide|percent|%|square root|sqrt|calculate|compute|solve|what is \d)", t)
+        or _re.search(r"[\d\s]+[+\-*/^][\d\s]", t)
+    ):
+        hits.append(("arithmetic", _FEWSHOT_EXAMPLES[0][1]))
+    if _re.search(r"(translate|translation|in french|in spanish|in bangla|in chinese|in hindi|mean in|say .* in|how do you say|如何|怎么翻译|翻译)", t):
+        hits.append(("translation", _FEWSHOT_EXAMPLES[1][1]))
+    if _re.search(r"(what does|define|definition|meaning of|what is the meaning|explain what)", t):
+        hits.append(("definition", _FEWSHOT_EXAMPLES[2][1]))
+    if _re.search(r"(write .* code|python|javascript|java|function|program|script|代码|编程)", t):
+        hits.append(("code", _FEWSHOT_EXAMPLES[3][1]))
+    # no strong signal -> give one generic good-answer example
+    if not hits:
+        return _FEWSHOT_EXAMPLES[2][1][:1]
+    out = []
+    for _, exs in hits:
+        out.extend(exs)
+    return out[:2]
 
 
 def _tool_schemas() -> list:
@@ -228,6 +391,18 @@ def _tool_schemas() -> list:
         },
         apps.TOOL_SCHEMA,
         scheduler.TOOL_SCHEMA,
+        {
+            "type": "function",
+            "function": {
+                "name": "calculate",
+                "description": "Exactly evaluate a math expression (use for arithmetic so the result is always exact, never guessed). Supports + - * / % ** and parentheses, and the functions sqrt, pow, abs, round, min, max, sin, cos, tan, log, exp, floor, ceil, pi, e. Example: 'sqrt(2)*3', '(12+5)*7', '25% of 200' -> pass '25*200/100'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"expression": {"type": "string", "description": "The math expression to evaluate."}},
+                    "required": ["expression"],
+                },
+            },
+        },
     ]
 
 
@@ -264,8 +439,7 @@ def _dispatch(name: str, args: dict, user_id=None) -> str:
         if name == "list_notes":
             return notes.list_notes()
         if name == "learn_fact":
-            db.add_learned_fact(user_id, args.get("fact", "").strip()[:500], source="agent")
-            return "Learned and saved to memory. I will remember this from now on."
+            return db.add_learned_fact(user_id, args.get("fact", "").strip()[:500], source="agent")
         if name == "browser_open":
             db.log_audit("browser_open", args["url"])
             return browser.browser_open(args["url"])
@@ -288,6 +462,8 @@ def _dispatch(name: str, args: dict, user_id=None) -> str:
         if name == "schedule_job":
             db.log_audit("schedule_job", f"{args.get('time')} {args.get('task')}")
             return scheduler.schedule_job(args["time"], args["task"])
+        if name == "calculate":
+            return _safe_calc(args.get("expression", ""))
         return f"Unknown tool: {name}"
     except Exception as e:
         db.log_audit(name, f"error: {str(e)[:400]}")
@@ -363,6 +539,16 @@ class NovaAgent:
                     )
         except Exception:
             pass
+
+        # Few-shot demonstrations (GPT-3 paper): give 1-2 examples for the detected task
+        # so the answer follows the right format, without fine-tuning.
+        demos = _pick_demos(user_text)
+        if demos:
+            system += (
+                "\n\nA few correct examples to follow for this kind of question:\n"
+                + "\n".join(demos)
+                + "\nAnswer the user's question in the same style and format."
+            )
 
         # Attachments: give Aura the names/types and any text preview content.
         if attachments:
