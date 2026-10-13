@@ -99,27 +99,42 @@ allowlist, act without approval on risky steps, or bypass safety.
 ## Folder structure
 
 ```
-nova/
-├── .env
-├── requirements.txt
+aura-ai/
+├── .gitignore
+├── LICENSE                     # MIT
 ├── README.md
-├── nova_workspace/
-├── logs/
+├── TECH-STACK.md               # stack + when to use other languages
+├── index.html                  # landing page
+├── nova-logo.png
+├── requirements.txt
+├── requirements-server.txt     # PythonAnywhere / Render free tier
+├── extras/                     # multi-language utilities
+│   ├── README.md
+│   ├── node-healthcheck/       # Node.js health check
+│   ├── go-repostats/           # Go repo-stats CLI
+│   └── ts-dashboard/           # TypeScript dashboard
 ├── nova/
 │   ├── __init__.py
 │   ├── config.py
 │   ├── db.py
 │   ├── agent.py
 │   ├── approval.py
+│   ├── deploy_server.py        # WSGI entry point for the hosted app
 │   ├── tools/
 │   │   ├── __init__.py
 │   │   ├── files.py
 │   │   ├── notes.py
 │   │   ├── browser.py
 │   │   ├── apps.py
+│   │   ├── image.py            # Image Studio
+│   │   ├── video.py            # Video Studio
 │   │   └── scheduler.py
 │   └── ui/
 │       ├── __init__.py
 │       ├── cli.py
-│       └── web.py
+│       └── web.py              # Flask web UI (login, chat, admin)
 ```
+
+Local runtime files kept out of git (see `.gitignore`): `.env`, `nova_workspace/`,
+`logs/`, `nova.db`, `venv/`.
+
