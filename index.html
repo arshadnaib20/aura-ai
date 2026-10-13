@@ -6,12 +6,12 @@
 <title>AURA AI — Your Local Intelligence</title>
 <meta name="description" content="AURA AI — a personal AI assistant built by Arshad Naib. Chat, notes, file tools, browser automation and video studio. Secure, audited and approval-gated.">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://arshadnaib20.github.io/nova-ai/">
+<link rel="canonical" href="https://arshadnaib20.github.io/aura-ai/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AURA AI">
 <meta property="og:title" content="AURA AI — Your Local Intelligence">
 <meta property="og:description" content="A personal AI assistant by Arshad Naib — chat, notes, files, browser automation and video studio.">
-<meta property="og:url" content="https://arshadnaib20.github.io/nova-ai/">
+<meta property="og:url" content="https://arshadnaib20.github.io/aura-ai/">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AURA AI — Your Local Intelligence">
@@ -23,7 +23,7 @@
   "name": "AURA AI",
   "applicationCategory": "AIAssistantApplication",
   "operatingSystem": "Web",
-  "url": "https://arshadnaib20.github.io/nova-ai/",
+  "url": "https://arshadnaib20.github.io/aura-ai/",
   "author": { "@type": "Person", "name": "Arshad Naib", "url": "https://github.com/arshadnaib20" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
@@ -376,7 +376,7 @@ footer{border-top:1px solid var(--line-soft);padding:44px 0 36px}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       Open Aura online
     </a>
-    <a class="btn btn-ghost" href="https://github.com/arshadnaib20/nova-ai" target="_blank" rel="noopener">
+    <a class="btn btn-ghost" href="https://github.com/arshadnaib20/aura-ai" target="_blank" rel="noopener">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.2-1.5 6.2-6.7a5.2 5.2 0 0 0-1.4-3.6 4.8 4.8 0 0 0-.1-3.6s-1.1-.4-3.7 1.4a12.7 12.7 0 0 0-6.8 0C6.1 2.6 5 3 5 3a4.8 4.8 0 0 0-.1 3.6 5.2 5.2 0 0 0-1.4 3.6c0 5.2 3.2 6.4 6.2 6.7a3.4 3.4 0 0 0-.9 2.6V22"/></svg>
       View on GitHub
     </a>
@@ -446,8 +446,8 @@ document.querySelectorAll('.card,.arch-node,.tl,.sec-head').forEach(el=>{
 
 /* ===== chat widget ===== */
 const KB=[
-  {k:['what is aura','what is nova','what are you','who are you','about aura','about nova','what can aura','what can nova','aura ai','nova ai'],a:'AURA is a private, audited AI agent that lives on your machine. It reads and writes files in a sandboxed workspace, takes searchable notes, opens allowed apps, browses the web, and runs scheduled jobs — all behind an approval gate you control. No cloud lock-in: memory lives in SQLite on your PC.'},
-  {k:['install','setup','get started','how to run','quick start','requirements','install aura','install nova'],a:'Aura is now hosted — open <b>arshadnaib20.pythonanywhere.com</b>, create an account and start chatting. To self-host: 1) Get a free API key at console.groq.com. 2) Clone the repo: <b>https://github.com/arshadnaib20/nova-ai</b>. 3) Put the key in <b>nova/.env</b>. 4) Run <b>pip install -r requirements.txt</b>. 5) Start with <b>python -m nova.ui.cli</b> (terminal) or <b>python -m nova.ui.web</b> (ChatGPT-style UI at localhost:5173).'},
+  {k:['what is aura','what are you','who are you','about aura','what can aura','aura ai'],a:'AURA is a private, audited AI agent that lives on your machine. It reads and writes files in a sandboxed workspace, takes searchable notes, opens allowed apps, browses the web, and runs scheduled jobs — all behind an approval gate you control. No cloud lock-in: memory lives in SQLite on your PC.'},
+  {k:['install','setup','get started','how to run','quick start','requirements','install aura'],a:'Aura is now hosted — open <b>arshadnaib20.pythonanywhere.com</b>, create an account and start chatting. To self-host: 1) Get a free API key at console.groq.com. 2) Clone the repo: <b>https://github.com/arshadnaib20/aura-ai</b>. 3) Put the key in <b>nova/.env</b>. 4) Run <b>pip install -r requirements.txt</b>. 5) Start with <b>python -m nova.ui.cli</b> (terminal) or <b>python -m nova.ui.web</b> (ChatGPT-style UI at localhost:5173).'},
   {k:['god mode','god','approval','permission','auto approve'],a:'<b>God Mode</b> lets AURA act without stopping to ask for approval on every step — type <b>/god</b> in the terminal or toggle it in the web UI. Everything is still written to the audit log, and a kill switch (<b>/stop</b>) is always available. You can also set permission levels 0–4.'},
   {k:['command','commands','cli','terminal','/notes','/audit','/exit','/stop'],a:'Terminal commands: <b>/exit</b> quits, <b>/notes</b> lists notes, <b>/audit</b> shows the recent audit trail, <b>/god</b> turns on auto-approval, <b>/stop</b> creates the kill switch and closes the browser. Everything else you just talk to AURA in plain English.'},
   {k:['login','sign up','register','account','password'],a:'The hosted Aura (arshadnaib20.pythonanywhere.com) has full email sign-up and sign-in with password hashing, plus a forgot-password reset. Sign up once, then chat from any browser.'},
@@ -460,10 +460,10 @@ const KB=[
   {k:['brain','groq','api','llm','model','key','free'],a:'AURA\'s brain is the free Groq API (model: openai/gpt-oss-20b) — fast and free, so it runs comfortably on low-RAM laptops. Your API key stays in local <b>.env</b>; it is never uploaded to GitHub.'},
   {k:['price','cost','money','free','paid','subscription'],a:'AURA itself is 100% free and open source. The only cost is a free Groq API key — no subscription, no cloud fees.'},
   {k:['secure','safe','privacy','private','audit','log'],a:'Privacy first: everything runs locally, every risky action is approved first, and every action is written to the audit log. Files stay in the sandboxed workspace. AURA never sends your data anywhere except to the LLM provider for the reply itself.'},
-  {k:['where','location','folder','path','file location','find'],a:'On this machine NOVA lives at <b>C:\\Users\\Administrator\\Doubao\\chats\\2026-09-18\\new-chat\\nova\\</b> — double-click the <b>Nova AI</b> icon on the desktop to start it.'},
+  {k:['where','location','folder','path','file location','find'],a:'On this machine AURA lives at <b>C:\\Users\\Administrator\\Doubao\\chats\\2026-09-18\\new-chat\\nova\\</b> — double-click the <b>Aura AI</b> icon on the desktop to start it.'},
   {k:['who made','creator','developer','made by','arshad','naib','aura made'],a:'AURA was built by <b>Arshad Naib</b>, a final-year Computer Science student at Xuzhou University of Technology — as part of a portfolio spanning software engineering, AI/ML, full-stack and cybersecurity.'},
   {k:['help','what can you do','features','capabilities'],a:'I can tell you about AURA\'s features: files, notes, browser, apps, scheduler, voice, God Mode, the web UI and installation. Try the suggestion chips below, or ask me anything about Aura.'},
-  {k:['github','repo','source','code','open source','link'],a:'The full source is on GitHub: <a href="https://github.com/arshadnaib20/nova-ai" target="_blank" rel="noopener">github.com/arshadnaib20/nova-ai</a> — pinned to the profile, with topics python, ai, llm and chatbot.'},
+  {k:['github','repo','source','code','open source','link'],a:'The full source is on GitHub: <a href="https://github.com/arshadnaib20/aura-ai" target="_blank" rel="noopener">github.com/arshadnaib20/aura-ai</a> — pinned to the profile, with topics python, ai, llm and chatbot.'},
   {k:['hello','hi','hey','salam','assalam'],a:'Hello! I\'m the AURA assistant. Ask me about AURA\'s features, how to install it, God Mode, voice, security — or tap a suggestion below.'}
 ];
 const FALLBACK='Good question. I\'m the site assistant — for that I\'d need the full AURA brain, which runs locally. Try asking me about <b>features</b>, <b>install</b>, <b>God Mode</b>, <b>voice</b>, <b>commands</b> or <b>security</b>.';
